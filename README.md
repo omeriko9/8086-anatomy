@@ -63,7 +63,11 @@ load your own images, and they stay in the browser (IndexedDB). Nothing is uploa
 
 ## Open it
 
-Open `dist/8086-anatomy.html` in a browser. It needs no server and no network.
+The live page: https://omeriko9.github.io/8086-anatomy/ (GitHub Pages builds it from
+`src/` at each push: `.github/workflows/pages.yml`).
+
+Or build it and open `dist/8086-anatomy.html` in a browser. It needs no server and no
+network.
 
 ## Build
 
