@@ -54,6 +54,20 @@ The graphics card is CGA (320×200 in 4 colours, 80×25 text) or VGA (640×480 i
 320×200 in 256 colours). All the machines also have a hard disk controller (drive C:) and a
 Sound Blaster 2.0.
 
+### Share a link to one state
+
+The address names the machine, the card and the view, for example
+`https://omeriko9.github.io/8086-anatomy/?cpu=80486&video=vga&view=die`.
+
+| Parameter | Values |
+|---|---|
+| `cpu` | `8086`, `80286`, `80386`, `80486`, `80586` (or `pentium`), `80686` (or `pentiumpro`) |
+| `video` | `cga`, `vga` |
+| `view` | `board`, `top`, `runner`, `die`, `timing`, `memory` |
+| `explain` | `1`: the guided story starts at once |
+
+The page keeps the address in step with your choices, so you can copy it at any time.
+
 ## Run an operating system
 
 Open **Disks**, load a bootable floppy image into drive A: (for example your own MS-DOS

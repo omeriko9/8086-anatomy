@@ -2845,6 +2845,16 @@ floating panels covered it, and that many controls had copies. The changes:
 - Text fixes: the 486 has no "U pipe" text (story.js: a 'pipe' event without a pipe), and the
   register card of the 386 and later says that it shows the low 16 bits of 32-bit registers.
 
+## The address of the page (theme.js `URL_PARAMS`, app.js `syncUrl`)
+
+The query of the address can name the state: `?cpu=80486&video=vga&view=die` (and `&explain=1`
+starts the guided story). theme.js reads it before the page starts (`URL_PARAMS`): a value in
+the address wins over the stored choice and is written to storage, so a reload keeps it. The
+names have short forms (486, pentium, p6, bus, mem). app.js keeps the address in step
+(`syncUrl`, `history.replaceState`, no new history entry): at the start, at each tab change, and
+in the model menu before the reload (the address must name the new model, because it wins at
+the load). A file: address does not allow a change of the query; the call is in a try.
+
 ## The WebAssembly instruction core (src/core/x86core.c, x86wasm.js)
 
 The 80386, 80486, Pentium and Pentium Pro models run their fast mode (Machine.run, no trace) in C

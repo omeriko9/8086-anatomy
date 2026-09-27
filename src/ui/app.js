@@ -92,7 +92,10 @@ class App {
     this.disks = new DiskPanel(this);
     this.explain = typeof Explain3D !== 'undefined' ? new Explain3D.Explain(this) : null;
     this.loadInitialProgram();
-    this.startCard();
+    this.syncUrl();
+    // (&explain in the address: the guided story starts at once)
+    if (typeof URL_PARAMS !== 'undefined' && URL_PARAMS.explain && this.explain) setTimeout(() => { if (!this.explain.on) this.explain.start(); }, 400);
+    else this.startCard();
     this.last = performance.now();
     this.loop = this.loop.bind(this);
     this.raf(this.loop);
@@ -159,7 +162,7 @@ class App {
       if (Cls) this.views[id] = new Cls(host, this.api);
       else htmlEl('p', { class: 'view-missing' }, host, 'This view is not available.');
     }
-    this.activeTab = storage.get('tab', 'board');
+    this.activeTab = (typeof URL_PARAMS !== 'undefined' && URL_PARAMS.view) || storage.get('tab', 'board');
     if (!this.views[this.activeTab]) this.activeTab = 'board';
     this.selectTab(this.activeTab, false);
     const ro = new ResizeObserver(() => this.onResize());
@@ -196,10 +199,25 @@ class App {
     this.syncBoardModes();
     this.activeTab = id;
     storage.set('tab', id);
+    this.syncUrl();
     const stage = this.el('stage');
     if (stage) stage.dataset.tab = id;
     if (focus) this.el('tab-' + main).focus();
     this.moveInk();
+  }
+  // The address of the page shows the machine, the card and the view, so the user can copy it as
+  // a link (?cpu=80486&video=vga&view=die). No new history entry.
+  syncUrl(cpu, video) {
+    try {
+      if (location.protocol === 'about:' || location.protocol === 'blob:') return;
+      const q = new URLSearchParams(location.search);
+      q.set('cpu', cpu || this.model);
+      const v = video || this.video;
+      if (v === 'vga') q.set('video', 'vga'); else q.delete('video');
+      q.set('view', this.activeTab || 'board');
+      q.delete('explain');
+      history.replaceState(null, '', location.pathname + '?' + q.toString() + location.hash);
+    } catch (e) { /* the browser does not allow it (a file, a sandbox) */ }
   }
   // The switch of the board views (3D, Top, Runner) goes to the left of the tool bar of the board
   // view that is open (each view gives its place: modeSlot).
@@ -930,9 +948,11 @@ class App {
       if (it.dataset.video) {
         if (it.dataset.video === video) return;
         storage.set('video', it.dataset.video);
+        this.syncUrl(null, it.dataset.video);   // (the address wins at the load: it must say the new card)
       } else {
         if (it.dataset.model === this.model) return;
         storage.set('cpu', it.dataset.model);
+        this.syncUrl(it.dataset.model, null);
       }
       this.pause();
       document.body.classList.add('switching');

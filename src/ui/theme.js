@@ -134,9 +134,32 @@ const THEME_686 = {
   mask: '#0a1119',
   silk: '#eef5fa',
 };
+// The address of the page can name the machine, the card and the view, so a link can share one
+// state: ?cpu=80486&video=vga&view=die (and &explain starts the guided story). A value in the
+// address wins over the stored choice and becomes the stored choice.
+//   cpu: 8086 | 80286 | 80386 | 80486 | 80586 | 80686 (also 286, 386, 486, pentium, p5, pentiumpro, p6)
+//   video: cga | vga    view: board | top | runner | die | timing | memory
+const URL_PARAMS = (() => {
+  const P = { cpu: null, video: null, view: null, explain: false };
+  try {
+    const q = new URLSearchParams(location.search);
+    const CPU = { 8086: '8086', 86: '8086', 80286: '80286', 286: '80286', 80386: '80386', 386: '80386', 80486: '80486', 486: '80486',
+      80586: '80586', 586: '80586', pentium: '80586', p5: '80586', 80686: '80686', 686: '80686', pentiumpro: '80686', ppro: '80686', p6: '80686' };
+    const VIEW = { board: 'board', '3d': 'board', top: 'top', runner: 'runner', die: 'die', timing: 'timing', bus: 'timing', memory: 'memory', mem: 'memory' };
+    const cpu = String(q.get('cpu') || '').toLowerCase().replace(/[\s_-]/g, ''), video = String(q.get('video') || '').toLowerCase(), view = String(q.get('view') || '').toLowerCase();
+    if (CPU[cpu]) P.cpu = CPU[cpu];
+    if (video === 'cga' || video === 'vga') P.video = video;
+    if (VIEW[view]) P.view = VIEW[view];
+    P.explain = q.has('explain') && q.get('explain') !== '0';
+    if (P.cpu) localStorage.setItem('a86:cpu', JSON.stringify(P.cpu));
+    if (P.video) localStorage.setItem('a86:video', JSON.stringify(P.video));
+  } catch (e) { /* no address or no storage */ }
+  return P;
+})();
 // The CPU model of this page ('8086' | '80286' | '80386' | '80486' | '80586' | '80686'); the page reloads to switch.
 // The 80286 and the 80386 run on the AT-class board (AT_MODEL).
 const CPU_MODEL = (() => {
+  if (URL_PARAMS.cpu) return URL_PARAMS.cpu;
   try { const v = JSON.parse(localStorage.getItem('a86:cpu')); return v === '80286' || v === '80386' || v === '80486' || v === '80586' || v === '80686' ? v : '8086'; } catch (e) { return '8086'; }
 })();
 const AT_MODEL = CPU_MODEL !== '8086';
@@ -160,6 +183,7 @@ if (CPU_MODEL === '80286') {
 }
 // The graphics card of this page ('cga' | 'vga'), storage 'video'; the page reloads to switch.
 const VIDEO_CARD = (() => {
+  if (URL_PARAMS.video) return URL_PARAMS.video;
   try { return JSON.parse(localStorage.getItem('a86:video')) === 'vga' ? 'vga' : 'cga'; } catch (e) { return 'cga'; }
 })();
 
