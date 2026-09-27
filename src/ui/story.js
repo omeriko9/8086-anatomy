@@ -185,6 +185,8 @@ const Story = (() => {
             : `The cache has the line of ${h(e.phys >>> 0, 8)}h (set ${e.set}, way ${e.way}): a hit, with no bus cycle.`);
           break;
         case 'pipe':
+          // (the 486 pipeline has one pipe: its card on the die shows the five stages)
+          if (!e.pipe) break;
           lines.push(e.paired ? `${e.pipe} pipe: it pairs with "${e.partner}"; the two instructions go through the pipes in the same clocks.`
             : `U pipe alone${e.reason ? ': ' + e.reason : ''}.`);
           break;

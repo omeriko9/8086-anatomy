@@ -93,7 +93,7 @@ const TopView = (() => {
         class: 'tp-wrap', tabindex: '0', role: 'application', 'aria-roledescription': 'top view',
         'aria-label': 'A flat top view of the computer. Drag to move, scroll or plus and minus to zoom, double-click a chip to fill the view with it, Esc to see all.',
       }, this.root);
-      const top = htmlEl('div', { class: 'tp-top' }, this.root);
+      const top = this.modeSlot = htmlEl('div', { class: 'tp-top' }, this.root);   // (the switch of the board views goes first)
       this.btnAll = htmlEl('button', { type: 'button', class: 'tp-btn', 'aria-label': 'See all the chips (Esc)' }, top, 'See all');
       this.btnFollow = htmlEl('button', { type: 'button', class: 'tp-btn', 'aria-pressed': 'true', 'aria-label': 'Follow: the view moves to the chips that work' }, top, 'Follow');
       htmlEl('p', { class: 'tp-hint' }, top, 'Drag to move · scroll to zoom · double-click a chip to fill the view · Esc: see all');
@@ -1082,10 +1082,14 @@ const TopView = (() => {
       return { left, right: Math.min(right, hr.width * 0.5) };
     }
     fitAll(instant) { this.fitBox({ x0: this.world.x0, x1: this.world.x1, z0: this.world.z0, z1: this.world.z1 }, instant, 1.02); }
-    // The trace bar and the bottom buttons cover the bottom of the view.
+    // The bottom buttons (and the trace bar, if it covers the view) cover the bottom of the view.
     barH() {
       const bar = document.getElementById('trace');
-      return bar && !bar.hidden && bar.offsetParent ? bar.offsetHeight + 16 : 44;
+      if (bar && !bar.hidden && bar.offsetParent) {
+        const a = bar.getBoundingClientRect(), b = this.host.getBoundingClientRect();
+        if (a.top < b.bottom && a.bottom > b.top) return Math.max(44, b.bottom - a.top + 16);
+      }
+      return 44;
     }
     fitChip(p, instant) { this.fitBox(this.dieRect(p), instant, 1.04); }
     toScreen(x, z) { const v = this.view; return [(x - v.cx) * v.z + this.w / 2, (z - v.cz) * v.z + this.h / 2]; }

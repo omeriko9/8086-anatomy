@@ -283,6 +283,18 @@ function svgEl(tag, attrs, parent) {
   if (parent) parent.appendChild(el);
   return el;
 }
+// The stages of a pipe event [PF, D1, D2, EX, WB] (the younger ones first), without the comments.
+// After a HLT in an older stage, the younger stages hold the bytes after the HLT (the prefetcher took
+// them, and the decoder sees them as instructions, often "add [bx+si], al" for zero bytes); they
+// never execute, so they show as empty. The result has hlt: true when a stage was cut.
+function pipeAfterHalt(stage) {
+  const st = (stage || []).slice(0, 5).map(x => String(x || '').replace(/\s*;.*$/, ''));
+  let h = -1;
+  st.forEach((x, i) => { if (/^hlt\b/i.test(x.trim())) h = Math.max(h, i); });
+  if (h > 0) for (let i = 0; i < h; i++) st[i] = '';
+  st.hlt = h > 0;
+  return st;
+}
 function htmlEl(tag, attrs, parent, text) {
   const el = document.createElement(tag);
   if (attrs) for (const k in attrs) {

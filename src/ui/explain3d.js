@@ -32,6 +32,9 @@ const Explain3D = (() => {
   const hx = (v, n) => (v >>> 0).toString(16).toUpperCase().padStart(n, '0');
   const CSS = `
   .xp3-on .bv-top, .xp3-on .bv-hint { display: none !important; }
+  /* Explain has the whole window: no view tabs, no counters, no run bar (its own bar has the controls) */
+  body.xp-full { --transport-h: 0px; }
+  body.xp-full .transport, body.xp-full .stage-head, body.xp-full .stats, body.xp-full .mobile-nav { display: none !important; }
   /* the card of the unit: larger in Explain (the drawing scales with the width) */
   .xp3-on .bk-panel:not(.bk-inplace) { width: 450px; padding: 12px 14px 10px 16px; }
   .xp3-on .bk-title { font-size: 17px; }
@@ -44,18 +47,28 @@ const Explain3D = (() => {
   .xp3-on .bv-tok-route { font-size: 14.5px; }
   .xp3-on .bv-tok-now { font-size: 14px; }
   .xp3-on .bv-lab { font-size: 14px; }
-  .xp3-prog { position: absolute; left: 12px; right: 12px; top: 10px; z-index: 8; display: flex; gap: 8px; flex-wrap: wrap; pointer-events: none; }
-  .xp3-card { flex: 1 1 180px; min-width: 0; display: grid; gap: 4px; padding: 7px 10px 8px; border-radius: 10px; background: color-mix(in srgb, var(--panel) 88%, transparent);
-    border: 1px solid var(--line); opacity: .5; transition: opacity .3s, border-color .3s, box-shadow .3s; backdrop-filter: blur(6px); }
-  .xp3-card.on { opacity: 1; border-color: var(--phosphor); box-shadow: 0 0 18px -4px var(--phosphor); }
-  .xp3-card.done { opacity: .72; }
-  .xp3-card .xb { display: flex; gap: 4px; }
-  .xp3-card .xb i { font: 700 14px var(--mono); font-style: normal; color: #120b1a; border-radius: 5px; padding: 3px 5px; }
-  .xp3-card code { font: 600 16.5px var(--mono); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .xp3-card small { font: 500 12.5px var(--mono); color: var(--muted); }
+  /* the program strip: one button for each chapter (the machine, each instruction, the end) */
+  .xp3-prog { position: absolute; left: 12px; right: 12px; top: 10px; z-index: 8; display: flex; gap: 6px; pointer-events: none; }
+  .xp3-card { flex: 1 1 0; min-width: 0; height: 42px; display: flex; align-items: center; gap: 9px; padding: 0 12px; border-radius: 10px; pointer-events: auto; cursor: pointer;
+    background: color-mix(in srgb, var(--panel) 90%, transparent); border: 1px solid var(--line); color: var(--text); font: inherit; text-align: left;
+    opacity: .6; transition: opacity .3s, border-color .3s, box-shadow .3s; backdrop-filter: blur(6px); }
+  .xp3-card.xp3-end { flex: 0 0 auto; font: 600 14px var(--sans); color: var(--muted); }
+  .xp3-card:hover { opacity: .9; border-color: var(--muted); }
+  .xp3-card.cur { opacity: 1; border-color: var(--phosphor); }
+  .xp3-card.cur.xp3-end { color: var(--text); }
+  .xp3-card.on { box-shadow: 0 0 18px -4px var(--phosphor); }
+  .xp3-card.done:not(.cur) { opacity: .75; }
+  .xp3-card:focus-visible { outline: 2px solid var(--phosphor); outline-offset: 2px; }
+  .xp3-card .n { flex: none; font: 700 13px var(--mono); color: var(--muted); }
+  .xp3-card.cur .n { color: var(--phosphor); }
+  .xp3-card code { flex: 1 1 auto; min-width: 0; font: 600 16px var(--mono); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .xp3-card .xb { flex: none; display: flex; gap: 3px; }
+  .xp3-card .xb i { font: 700 12.5px var(--mono); font-style: normal; color: #120b1a; border-radius: 4px; padding: 2px 4px; }
+  @media (max-width: 1180px) { .xp3-card .xb { display: none; } }
   .xp3-bar { position: absolute; left: 12px; right: 12px; bottom: 12px; z-index: 8; display: grid; gap: 8px; padding: 12px 14px; border-radius: 12px;
     background: color-mix(in srgb, var(--panel) 92%, transparent); border: 1px solid var(--line); backdrop-filter: blur(8px); box-shadow: 0 18px 40px -18px #000; }
-  .xp3-chap { font: 600 13.5px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--phosphor); }
+  .xp3-chap { font: 650 14.5px var(--sans); color: var(--phosphor); }
+  .xp3-chap code { font: 600 14.5px var(--mono); color: var(--text); }
   .xp3-cap { margin: 0; font: 500 clamp(17px, 1.75vw, 23px)/1.45 var(--sans); color: var(--text); min-height: 2.9em; max-width: 100ch; }
   .xp3-cap b { color: #fff; font-weight: 650; }
   /* the step (while the caption shows the unit that works): a short line above the caption */
@@ -78,11 +91,12 @@ const Explain3D = (() => {
   .xp3-ms button.on::before { box-shadow: 0 0 0 1.5px var(--phosphor); }
   .xp3-ms button.wait::before { background: repeating-linear-gradient(90deg, var(--line) 0 4px, transparent 4px 7px); }
   .xp3-ms button:focus-visible { outline: 2px solid var(--phosphor); outline-offset: 1px; border-radius: 4px; }
-  .xp3-chap small { margin-left: .6em; color: var(--text); letter-spacing: .04em; }
+  .xp3-chap small { margin-left: .8em; font: 500 14px var(--sans); color: var(--muted); }
   .xp3-btn:focus-visible, .xp3-chip:focus-visible { outline: 2px solid var(--phosphor); outline-offset: 2px; }
   .xp3-btn.on { border-color: var(--phosphor); color: var(--phosphor); }
-  .xp3-set { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px 18px; padding: 10px 12px; border-radius: 10px;
-    background: color-mix(in srgb, var(--panel2) 80%, transparent); border: 1px solid var(--line); }
+  /* the timing panel opens over the view, above the bar (the bar keeps its size, so the shots stay) */
+  .xp3-set { position: absolute; left: 0; right: 0; bottom: calc(100% + 8px); display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px 18px;
+    padding: 12px 14px; border-radius: 12px; background: color-mix(in srgb, var(--panel) 96%, transparent); border: 1px solid var(--line); box-shadow: 0 18px 40px -18px #000; }
   .xp3-sl { display: grid; gap: 4px; font: 500 13px var(--sans); color: var(--text); }
   .xp3-sl-top { display: flex; justify-content: space-between; gap: 8px; }
   .xp3-sl-top b { font: 700 13px var(--mono); color: var(--phosphor); font-variant-numeric: tabular-nums; }
@@ -135,6 +149,7 @@ const Explain3D = (() => {
         sfx: typeof Sfx !== 'undefined' ? Sfx.on : false, cardMin: bd.bcard ? bd.bcard.min : null, src: a.editor.value };
       this.on = true;
       // the whole stage for the board: the program pane and the dock close (Exit opens them again)
+      document.body.classList.add('xp-full');
       this.saved.code = document.body.classList.contains('code-hidden');
       this.saved.dock = document.body.classList.contains('dock-hidden');
       if (a.toggleCode && !this.saved.code) a.toggleCode(true);
@@ -170,6 +185,7 @@ const Explain3D = (() => {
       bd.xpSet(null);
       bd.root.classList.remove('xp3-on');
       if (this.ui) { this.ui.prog.remove(); this.ui.bar.remove(); this.ui = null; }
+      document.body.classList.remove('xp-full');
       AnimClock.setScale(s.scale);
       a.tracePre = s.pre;
       a.setSpeedPos(s.speedPos, true);
@@ -232,7 +248,7 @@ const Explain3D = (() => {
         return [
           { label: 'The program', cap: `This program has <b>four instructions</b> (at the top). The assembler changed each line into bytes: the colored tiles. The CPU sees only these bytes.`, ms: 6000, run: () => { bd.applyPreset('overview', false); bd.xpFocus([], { fly: false }); this.card(-1); } },
           { label: 'The CPU', cap: `The <b>${CPU.name} CPU</b> runs them, at ${this.mhz()} MHz. ${CPU.inside}`, ms: 7500, run: () => bd.xpFocus(['cpu', 'clk']) },
-          { label: 'The clock', cap: this.clockText(), ms: 9000, run: () => { bd.dieEntry('clk'); bd.xpFocus(['die:clk']); bd.xpCard = { spec: this.clockCard(), t0: animNow(), dur: 7000 }; } },
+          { label: 'The clock', cap: this.clockText(), ms: 9000, run: () => { bd.dieEntry('clk'); bd.xpFocus(['die:clk']); bd.xpCard = { spec: Object.assign(this.clockCard(), { sub: '' }), t0: animNow(), dur: 7000 }; } },
           { label: 'The bus', cap: `The CPU talks to everything through the <b>bus</b>: the <b>${CPU.lat} latches</b> hold the address, the <b>${CPU.xcv} transceivers</b> pass the data, the <b>${CPU.bus} bus controller</b> makes the commands, and the <b>decoder</b> selects the chip that answers.`, ms: 7500, run: () => bd.xpFocus(['cpu', 'lat0', 'lat1', 'lat2', 'xcv0', 'xcv1', 'bus', 'dec']) },
           { label: 'The RAM', cap: `The program bytes are in the <b>RAM</b> (two banks: even and odd addresses), from address <b>10100h</b>.`, ms: 5000, run: () => bd.xpFocus(['ramE', 'ramO']) },
           { label: `The ${VIDEO} card`, cap: `The <b>${VIDEO} card</b> has its own video memory at <b>B8000h</b>. It draws the screen from it 60 times a second. Now the screen is empty.`, ms: 6000, run: () => bd.xpFocus(['cga', 'monitor']) },
@@ -421,8 +437,11 @@ const Explain3D = (() => {
         caps: [[0, `CLK: ${f} MHz. Each instruction takes a number of these clocks.`]] };
     }
     clockText() {
-      const f = this.mhz();
-      return `The <b>clock</b> keeps the time. Each part of a bus cycle (a <b>T state</b>) and each step of the CPU takes one or more clock periods. Here one clock is <b>${Math.round(1000 / f)} ns</b> (${f} MHz).`;
+      const f = this.mhz(), e = this.board.decaps.get('clk'), part = e ? e.part : '8284A';
+      const fact = MODEL === '8086' ? ` The crystal gives 14.318 MHz, and the <b>${part}</b> divides it by 3.`
+        : MODEL === '80286' || MODEL === '80386' ? ` The <b>${part}</b> gives ${2 * f} MHz, and the ${CPU.name} divides it by 2 inside.`
+          : MODEL === '80686' ? ' The bus clock is 66 MHz, and the Pentium Pro multiplies it by 3 inside.' : '';
+      return `The <b>clock</b> keeps the time. Each part of a bus cycle (a <b>T state</b>) and each step of the CPU takes one or more clock periods. Here one clock is <b>${Math.round(1000 / f)} ns</b> (${f} MHz).${fact}`;
     }
     mhz() { const hz = this.app.machine.clockHz || 4772727; return +(hz / 1e6).toFixed(2); }
     // The letter on the screen: the camera goes to the monitor and the CGA card.
@@ -487,19 +506,29 @@ const Explain3D = (() => {
       const bd = this.board, P = this.program(), el = (tag, cls, parent, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt !== undefined) e.textContent = txt; if (parent) parent.appendChild(e); return e; };
       const prog = el('div', 'xp3-prog', bd.root);
       prog.setAttribute('aria-label', 'The program');
+      // the program strip: the chapters (the machine, each instruction with its bytes, the end)
+      const chip = (cls, c, tip) => {
+        const b = el('button', cls, prog);
+        b.type = 'button'; b.title = tip; b.setAttribute('aria-label', tip);
+        b.addEventListener('click', () => { this.go(c); if (this.paused) this.togglePause(); });
+        return b;
+      };
+      const first = chip('xp3-card xp3-end', 0, 'The machine: a tour of the parts');
+      first.textContent = 'The machine';
       const cards = P.list.map((ins, k) => {
-        const c = el('div', 'xp3-card', prog);
-        el('small', null, c, `${k + 1} · 1000:${hx(ins.ip, 4)}`);
-        const xb = el('div', 'xb', c);
-        for (const b of ins.bytes) { const i = el('i', null, xb, hx(b, 2)); i.style.background = ins.col; }
+        const c = chip('xp3-card', k + 1, `Instruction ${k + 1} at 1000:${hx(ins.ip, 4)}: ${ins.text}`);
+        el('span', 'n', c, String(k + 1));
         el('code', null, c, ins.text);
+        const xb = el('span', 'xb', c);
+        for (const b of ins.bytes) { const i = el('i', null, xb, hx(b, 2)); i.style.background = ins.col; }
         return c;
       });
+      const last = chip('xp3-card xp3-end', P.list.length + 1, 'The end: the summary');
+      last.textContent = 'The end';
+      const chips = [first, ...cards, last];
       const bar = el('section', 'xp3-bar', bd.root);
       bar.setAttribute('aria-label', 'Explain');
       const chap = el('span', 'xp3-chap', bar);
-      const ctx = el('p', 'xp3-ctx', bar);
-      ctx.hidden = true;
       const cap = el('p', 'xp3-cap', bar);
       cap.setAttribute('aria-live', 'polite');
       // the timing panel (opens above the controls)
@@ -547,19 +576,10 @@ const Explain3D = (() => {
       const gear = el('button', 'xp3-btn', row, 'Timing');
       gear.type = 'button'; gear.setAttribute('aria-expanded', 'false');
       gear.addEventListener('click', () => { setp.hidden = !setp.hidden; gear.setAttribute('aria-expanded', String(!setp.hidden)); gear.classList.toggle('on', !setp.hidden); });
-      // short chips (the program cards at the top show each instruction)
-      const names = ['Machine', ...P.list.map((x, k) => String(k + 1)), 'End'];
-      const tips = ['The machine', ...P.list.map((x, k) => `Instruction ${k + 1}: ${x.text}`), 'The end'];
-      const chips = names.map((n, c) => {
-        const b = el('button', 'xp3-chip', row, n);
-        b.type = 'button'; b.title = tips[c]; b.setAttribute('aria-label', tips[c]);
-        b.addEventListener('click', () => { this.go(c); if (this.paused) this.togglePause(); });
-        return b;
-      });
       const ex = el('button', 'xp3-btn', row, 'Exit');
       ex.type = 'button';
       ex.addEventListener('click', () => this.stop());
-      this.ui = { prog, cards, bar, chap, ctx, cap, play, msBox, msEls: [], chips, sp, nx, back };
+      this.ui = { prog, cards, bar, chap, cap, play, msBox, msEls: [], chips, sp, nx, back };
       const b = document.getElementById('btn-explain'); if (b) b.textContent = '✕ Explain';
       this.syncUi();
     }
@@ -616,14 +636,16 @@ const Explain3D = (() => {
       const u = this.ui;
       if (!u) return;
       const P = this.program(), c = this.chapter;
-      u.chap.textContent = c === 0 ? 'The machine' : c > P.list.length ? 'The end' : `Instruction ${c} · ${P.list[c - 1].text}`;
+      u.chap.textContent = c === 0 ? 'The machine' : c > P.list.length ? 'The end' : `Instruction ${c} of ${P.list.length}: `;
+      if (c > 0 && c <= P.list.length) { const cd = document.createElement('code'); cd.textContent = P.list[c - 1].text; u.chap.appendChild(cd); }
       const M = this.ms || [], mb = M[this.mi];
-      if (mb && M.length > 1) { const sm = document.createElement('small'); sm.textContent = `${mb.label || ''} · ${this.mi + 1} of ${M.length}${M.some(x => x.pending) ? '+' : ''}`; u.chap.appendChild(sm); }
+      // (the number of the milestones is known when the instruction starts)
+      if (mb && M.length > 1) { const sm = document.createElement('small'); sm.textContent = M.some(x => x.pending) ? mb.label || '' : `${mb.label || ''} · ${this.mi + 1} of ${M.length}`; u.chap.appendChild(sm); }
       this.syncMs();
       this.showCap();
       u.nx.classList.toggle('main', !!this.waiting);
       u.nx.textContent = this.waiting ? 'Next ▸ (waiting)' : 'Next ▸';
-      u.chips.forEach((b, i) => b.classList.toggle('on', i === c));
+      u.chips.forEach((b, i) => { b.classList.toggle('cur', i === c); b.setAttribute('aria-current', i === c ? 'step' : 'false'); });
     }
     // One text for each unit: while a unit of a chip works, the caption tells what this unit does
     // (its chip, its name, its work now); the step goes to the short line above. The unit text stays
@@ -642,12 +664,7 @@ const Explain3D = (() => {
       if (t && t.text) {
         const hexB = x => x.replace(/(\b[0-9A-F]{2,8}h\b)/g, '<b>$1</b>');
         u.cap.innerHTML = `<span class="xp3-unit">${t.chip} · ${t.unit}</span>${hexB(t.text)}`;
-        u.ctx.innerHTML = this.capHtml || '';
-        u.ctx.hidden = !this.capHtml;
-      } else {
-        u.cap.innerHTML = this.capHtml || '';
-        u.ctx.hidden = true;
-      }
+      } else u.cap.innerHTML = this.capHtml || '';
     }
     syncProgress(now) {
       if (!this.ui || !this.cur) return;

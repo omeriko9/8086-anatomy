@@ -3,12 +3,14 @@
 // (src/ui/blocks.js) with the same facts, drawn like the inside of the silicon: a dark
 // translucent fill, thin metal lines, small cells, and bright light where the signal is.
 //
-//   UnitFx.draw(g, w, h, spec, u, t, reduced)
+//   UnitFx.draw(g, w, h, spec, u, t, reduced, zs)
 //     g        CanvasRenderingContext2D of a transparent canvas of w x h px (the unit rectangle)
 //     spec     the card spec of BlockPanel.show(): { kind, col?, ...params }
 //     u        progress 0..1 while the token waits (u >= 1: the final state). No internal
 //              state: each call draws the state for u directly.
 //     t        time in ms for the soft idle pulse; reduced: true = no idle motion
+//     zs       canvas px for one px of the drawing (optional; Explain gives it from the size of the
+//              unit on the screen, so that the words keep their size on the screen)
 // kinds: adder logic alu shift bytes regfile decoder cells (dram rom) mux latch buffer flags
 // status opcode counter text. An unknown kind draws as text; an error draws a pulse + label.
 
@@ -191,7 +193,7 @@ const UnitFx = (() => {
   }
   function base(w, h) {
     G.clearRect(0, 0, w, h);
-    G.fillStyle = 'rgba(8,10,20,0.94)';   // (the unit works here: the die art under it stays dark)
+    G.fillStyle = 'rgb(8,10,20)';   // (the unit works here: the die art and its name do not show through)
     G.fillRect(0, 0, w, h);
     // faint power rails of the metal layer
     const st = Math.max(4, Math.round(Math.min(w, h) / 36));
@@ -1305,22 +1307,28 @@ const UnitFx = (() => {
     const txt = String(s.text || '').trim();
     header(C, [bytes.map(hex2).join(' '), hex2(bytes[0])], txt, seg(u, 0.86, 0.96));
     setFrame(false, 0, 0);
-    // layout A: one row of bits (+ tiles of the other bytes); layout B: one row for each byte
+    // layout A: one row of bits (+ tiles of the other bytes); layout B: one row for each byte;
+    // layout T (a tall unit): one row for each byte, and the other bytes under them, 3 in a row
+    const rr = rest.length ? Math.ceil(rest.length / 3) : 0;
     const lay = lab => {
       const lh = lab ? 11 + 4 : 0;
       const pA = Math.min(C.w / (nb * 8 + (nb - 1) * 0.7 + rest.length * 2.3 + 0.3), (C.h - lh) / 1.6, 44);
       const pB = nb > 1 ? Math.min(C.w / 8.4, (C.h - nb * lh) / (nb * 1.6 + (nb - 1) * 0.5), 44) : 0;
-      return pA * 1.3 >= pB ? { B: false, p: pA, lh } : { B: true, p: pB, lh };
+      const pT = C.h > C.w * 1.3 ? Math.min(C.w / 8.4, (C.h - nb * lh) / (nb * 1.6 + (nb - 1) * 0.5 + (rr ? 0.5 + rr * 1.8 : 0)), 44) : 0;
+      let o = pA * 1.3 >= pB ? { B: false, T: false, p: pA, lh } : { B: true, T: false, p: pB, lh };
+      if (pT > o.p * 1.3) o = { B: true, T: true, p: pT, lh };
+      return o;
     };
     let Lo = lay(true), lab = Lo.p >= 9;
     if (!lab) Lo = lay(false);
-    const { B, p, lh } = Lo;
-    // the bit cells get taller when there is room
-    const rowAv = B ? (C.h - (nb - 1) * 0.5 * p) / nb : C.h;
+    const { B, T, p, lh } = Lo;
+    // the bit cells get taller when there is room (T: they leave room for the other bytes)
+    const tallR = T && rr ? (0.5 + rr * 1.8) * p : 0;
+    const rowAv = B ? (C.h - tallR - (nb - 1) * 0.5 * p) / nb : C.h;
     const bh = clamp(rowAv - lh - 0.6 * p, p, 2.4 * p), bw = p * 0.78;
     const rowD = bh + 0.6 * p + lh;
     const totW = B ? 8 * p : nb * 8 * p + (nb - 1) * 0.7 * p + (rest.length ? 0.3 * p + rest.length * 2.3 * p : 0);
-    const totH = B ? nb * rowD + (nb - 1) * 0.5 * p : rowD;
+    const totH = B ? nb * rowD + (nb - 1) * 0.5 * p + tallR : rowD;
     const x0 = C.x + (C.w - totW) / 2, y0 = C.y + (C.h - totH) / 2;
     const bxp = (k, i) => (B ? x0 : x0 + k * 8.7 * p) + (7 - i + 0.5) * p;
     const rowY = k => (B ? y0 + k * (rowD + 0.5 * p) : y0);
@@ -1355,18 +1363,20 @@ const UnitFx = (() => {
       G.stroke();
       if (lab && (allFit || act)) text(f.name, (xl + xr) / 2, yb + 3 + px / 2, px, act ? COL : ca(COL, 0.6), 'center', act);
     });
-    // the other bytes (displacement, data)
-    if (!B && rest.length) {
+    // the other bytes (displacement, data): after the bits, or (T) under them
+    if ((!B || T) && rest.length) {
       const e = seg(u, 0.8, 0.88);
       rest.forEach((bv, m) => {
-        const x = x0 + nb * 8 * p + (nb - 1) * 0.7 * p + 0.3 * p + m * 2.3 * p, y = rowY(0);
+        const tw = T ? 2.5 * p : 2 * p, th = T ? 1.4 * p : bh;
+        const x = T ? x0 + (m % 3) * 2.75 * p : x0 + nb * 8 * p + (nb - 1) * 0.7 * p + 0.3 * p + m * 2.3 * p;
+        const y = T ? y0 + nb * rowD + (nb - 1) * 0.5 * p + 0.5 * p + Math.floor(m / 3) * 1.8 * p : rowY(0);
         G.fillStyle = e > 0 ? ca(COL, 0.1 * e) : 'rgba(16,20,34,0.9)';
-        G.fillRect(x, y, 2 * p, bh);
+        G.fillRect(x, y, tw, th);
         G.strokeStyle = e > 0 ? ca(COL, 0.4 + 0.5 * e) : EDGE;
         G.lineWidth = 1;
-        G.strokeRect(x, y, 2 * p, bh);
+        G.strokeRect(x, y, tw, th);
         const tp = clamp(Math.floor(p * 0.5), 11, 15);
-        if (TW('00', tp) <= 1.9 * p && bh >= tp) text(hex2(bv), x + p, y + bh / 2, tp, e > 0 ? ca(COL, 0.6 + 0.4 * e) : ca(THEME.text, 0.55), 'center', true);
+        if (TW('00', tp) <= tw - 0.1 * p && th >= tp) text(hex2(bv), x + tw / 2, y + th / 2, tp, e > 0 ? ca(COL, 0.6 + 0.4 * e) : ca(THEME.text, 0.55), 'center', true);
       });
     }
   }
@@ -1896,7 +1906,7 @@ const UnitFx = (() => {
 
   const UnitFx = {
     // Draw the activity of one die unit (see the top of this file).
-    draw(g, w, h, spec, u, t, reduced) {
+    draw(g, w, h, spec, u, t, reduced, zs) {
       if (!g || !(w > 0) || !(h > 0)) return;
       spec = spec && typeof spec === 'object' ? spec : {};
       const kind = String(spec.kind || 'text').toLowerCase();
@@ -1910,7 +1920,7 @@ const UnitFx = (() => {
         COL = colorOf(spec, kind);
         // the drawing is made for a unit of about 360 px on the screen: a larger canvas scales
         // it up, so the words and the lines keep their size on the screen
-        const ZS = clamp(Math.min(w, h) / 360, 1, 3);
+        const ZS = zs > 0 ? clamp(zs, 1, 6) : clamp(Math.min(w, h) / 360, 1, 3);
         ZSC = ZS;
         g.scale(ZS, ZS);
         w /= ZS; h /= ZS;

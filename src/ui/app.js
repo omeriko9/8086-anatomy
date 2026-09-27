@@ -15,9 +15,15 @@ const SPEEDS = [
 ];
 const PROG_BASE = PROG_SEG << 4;
 const VIEW_TABS = ['board', 'top', 'runner', 'die', 'timing', 'memory'];
-// Slow motion for the animations: 1x down to 1/64x (the emulator keeps its own speed).
+// The tab bar has four tabs; the Board tab shows one of three views of the board (its modes).
+const BOARD_MODES = ['board', 'top', 'runner'];
+const MAIN_TABS = ['board', 'die', 'timing', 'memory'];
+// Slow motion for the animations: 1x down to 1/64x (the emulator keeps its own speed). It is the
+// left part of the speed slider: the slider value v < SLOW (10 for each stop) is slow motion at the
+// slowest speed; v >= SLOW is the speed position v - SLOW (0..90) at 1x.
 const MOTION = [1 / 64, 1 / 32, 1 / 16, 1 / 8, 1 / 4, 1 / 2, 1];
 const MOTION_LABEL = ['1/64×', '1/32×', '1/16×', '⅛×', '¼×', '½×', '1×'];
+const SLOW = (MOTION.length - 1) * 10;
 // Trace mode: the explain speeds set the time of one step, not of one instruction.
 const TRACE_MS = [4000, 2600, 1700, 1100, 650, 330, 150];
 // (a step takes longer when its path is long: the signal moves at a steady speed)
@@ -86,6 +92,7 @@ class App {
     this.disks = new DiskPanel(this);
     this.explain = typeof Explain3D !== 'undefined' ? new Explain3D.Explain(this) : null;
     this.loadInitialProgram();
+    this.startCard();
     this.last = performance.now();
     this.loop = this.loop.bind(this);
     this.raf(this.loop);
@@ -170,24 +177,44 @@ class App {
   }
 
   selectTab(id, focus) {
-    const ids = VIEW_TABS;
-    for (const t of ids) {
-      const tab = this.el('tab-' + t), host = this.el('view-' + t);
-      const on = t === id;
-      tab.setAttribute('aria-selected', on ? 'true' : 'false');
-      tab.tabIndex = on ? 0 : -1;
+    const board = BOARD_MODES.includes(id), main = board ? 'board' : id;
+    for (const t of VIEW_TABS) {
+      const host = this.el('view-' + t), on = t === id;
       host.hidden = !on;
       if (this.views[t]) { if (on) { this.views[t].show(); this.views[t].resize(); } else this.views[t].hide(); }
     }
+    for (const t of MAIN_TABS) {
+      const tab = this.el('tab-' + t), on = t === main;
+      tab.setAttribute('aria-selected', on ? 'true' : 'false');
+      tab.tabIndex = on ? 0 : -1;
+    }
+    if (board) {
+      this.boardMode = id;
+      storage.set('boardMode', id);
+      this.el('tab-board').setAttribute('aria-controls', 'view-' + id);
+    }
+    this.syncBoardModes();
     this.activeTab = id;
     storage.set('tab', id);
     const stage = this.el('stage');
     if (stage) stage.dataset.tab = id;
-    if (focus) this.el('tab-' + id).focus();
+    if (focus) this.el('tab-' + main).focus();
     this.moveInk();
   }
+  // The switch of the board views (3D, Top, Runner) goes to the left of the tool bar of the board
+  // view that is open (each view gives its place: modeSlot).
+  syncBoardModes() {
+    const m = this.el('board-modes'), mode = this.boardMode || 'board', v = this.views[mode];
+    if (!m) return;
+    if (v && v.modeSlot && m.parentNode !== v.modeSlot) v.modeSlot.prepend(m);
+    for (const b of m.querySelectorAll('button')) {
+      const on = b.dataset.mode === mode;
+      b.setAttribute('aria-checked', on ? 'true' : 'false');
+      b.tabIndex = on ? 0 : -1;
+    }
+  }
   moveInk() {
-    const tab = this.el('tab-' + this.activeTab), ink = this.el('tab-ink');
+    const tab = this.el('tab-' + (BOARD_MODES.includes(this.activeTab) ? 'board' : this.activeTab)), ink = this.el('tab-ink');
     if (!tab || !ink) return;
     ink.style.width = tab.offsetWidth - 16 + 'px';
     ink.style.transform = `translateX(${tab.offsetLeft + 8}px)`;
@@ -220,34 +247,45 @@ class App {
     $('btn-import').addEventListener('click', () => $('file-input').click());
     $('file-input').addEventListener('change', e => this.importFile(e.target.files[0]));
     $('btn-export').addEventListener('click', () => this.exportFile());
-    $('btn-help').addEventListener('click', () => { const d = $('help'); if (d.showModal) d.showModal(); });
-    const snd = $('btn-sound');
+    // (the help opens at its top: the title gets the focus, not the Close button at the bottom)
+    $('btn-help').addEventListener('click', () => { const d = $('help'); if (d.showModal) { d.showModal(); d.scrollTop = 0; $('help-title').focus(); } });
+    // the small menus of the top bar: the sound, and more run options
+    const menus = [['btn-sound', 'sound-menu'], ['btn-opts', 'opts-menu']].map(([b, m]) => ({ b: $(b), m: $(m) }));
+    const setMenu = (M, on) => { M.m.hidden = !on; M.b.setAttribute('aria-expanded', on ? 'true' : 'false'); };
+    for (const M of menus) {
+      M.b.addEventListener('click', () => { const on = M.m.hidden; for (const N of menus) setMenu(N, false); setMenu(M, on); });
+      M.m.addEventListener('keydown', e => { if (e.key === 'Escape') { e.stopPropagation(); setMenu(M, false); M.b.focus(); } });
+    }
+    document.addEventListener('pointerdown', e => { for (const M of menus) if (!M.m.hidden && !M.m.contains(e.target) && !M.b.contains(e.target)) setMenu(M, false); });
+    // the machine sound (the speaker, the sound card); the icon shows it
+    const snd = $('btn-sound'), osnd = $('opt-snd');
     const setSnd = on => {
-      snd.setAttribute('aria-pressed', on ? 'true' : 'false');
-      snd.setAttribute('aria-label', on ? 'Sound on. Turn the speaker sound off' : 'Sound off. Turn the speaker sound on');
+      snd.classList.toggle('on', on);
+      snd.setAttribute('aria-label', on ? 'Sound: the machine sound is on' : 'Sound: the machine sound is off');
+      osnd.checked = on;
     };
     setSnd(this.audio.enabled);
-    snd.addEventListener('click', () => { const on = !this.audio.enabled; this.audio.setEnabled(on); setSnd(on); });
-    const motion = this.el('motion');
-    const setMotion = i => {
-      AnimClock.setScale(MOTION[i]);
-      motion.value = i;
-      $('motion-out').textContent = MOTION_LABEL[i];
-      motion.setAttribute('aria-valuetext', `animation at ${MOTION_LABEL[i]} speed`);
-      storage.set('motion', i);
-    };
-    motion.addEventListener('input', () => setMotion(+motion.value));
-    setMotion(clamp(storage.get('motion', 6), 0, 6));
+    osnd.addEventListener('change', () => { this.audio.setEnabled(osnd.checked); setSnd(osnd.checked); });
+    // the speed slider: slow motion at its left end, then the speeds
     const speed = $('speed');
-    speed.max = (SPEEDS.length - 1) * 10;
-    speed.value = this.speedPos;
-    speed.addEventListener('input', () => this.setSpeedPos(+speed.value));
-    // Page Up / Page Down jump to the next known speed; the arrow keys move one fine step
+    speed.max = SLOW + (SPEEDS.length - 1) * 10;
+    this.motionIdx = clamp(storage.get('motion', MOTION.length - 1), 0, MOTION.length - 1);
+    if (this.motionIdx < MOTION.length - 1) this.speedPos = 0;
+    AnimClock.setScale(MOTION[this.motionIdx]);
+    const slide = v => {
+      if (v < SLOW) {
+        // slow motion: the stops of MOTION, at the slowest speed
+        this.setMotion(clamp(Math.round(v / 10), 0, MOTION.length - 1));
+        this.setSpeedPos(0);
+      } else { this.setMotion(MOTION.length - 1); this.setSpeedPos(v - SLOW); }
+    };
+    speed.addEventListener('input', () => slide(+speed.value));
+    // Page Up / Page Down jump to the next known stop; the arrow keys move one fine step
     speed.addEventListener('keydown', e => {
       if (e.key !== 'PageUp' && e.key !== 'PageDown') return;
       e.preventDefault();
-      const k = Math.round(this.speedPos / 10) + (e.key === 'PageUp' ? 1 : -1);
-      this.setSpeedPos(clamp(k, 0, SPEEDS.length - 1) * 10);
+      const v = this.motionIdx < MOTION.length - 1 ? this.motionIdx * 10 : SLOW + this.speedPos;
+      slide(clamp((Math.round(v / 10) + (e.key === 'PageUp' ? 1 : -1)) * 10, 0, +speed.max));
     });
     this.setSpeedPos(this.speedPos, true);
     $('opt-boot').checked = storage.get('watchBoot', false);
@@ -260,18 +298,31 @@ class App {
       const li = e.target.closest('li');
       if (li) this.editor.focusLine(+li.dataset.line);
     });
-    // tabs
-    const tabs = VIEW_TABS, nt = tabs.length;
+    // tabs (the Board tab opens the board view of the last choice)
+    this.boardMode = BOARD_MODES.includes(storage.get('boardMode', 'board')) ? storage.get('boardMode', 'board') : 'board';
+    const tabs = MAIN_TABS, nt = tabs.length, go = t => (t === 'board' ? this.boardMode || 'board' : t);
     tabs.forEach((t, i) => {
       const el = $('tab-' + t);
-      el.addEventListener('click', () => this.selectTab(t));
+      el.addEventListener('click', () => this.selectTab(go(t)));
       el.addEventListener('keydown', e => {
         let j = -1;
         if (e.key === 'ArrowRight') j = (i + 1) % nt;
         else if (e.key === 'ArrowLeft') j = (i + nt - 1) % nt;
         else if (e.key === 'Home') j = 0;
         else if (e.key === 'End') j = nt - 1;
-        if (j >= 0) { e.preventDefault(); this.selectTab(tabs[j], true); }
+        if (j >= 0) { e.preventDefault(); this.selectTab(go(tabs[j]), true); }
+      });
+    });
+    // the board views: a radio group (arrow keys move the choice)
+    const modes = [...document.querySelectorAll('#board-modes button')];
+    modes.forEach((b, i) => {
+      b.addEventListener('click', () => this.selectTab(b.dataset.mode));
+      b.addEventListener('keydown', e => {
+        const j = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? (i + 1) % modes.length : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? (i + modes.length - 1) % modes.length : -1;
+        if (j < 0) return;
+        e.preventDefault();
+        this.selectTab(modes[j].dataset.mode);
+        modes[j].focus();
       });
     });
     // mobile sections
@@ -337,6 +388,11 @@ class App {
       // the new setting starts with the next instruction
       this.announce('The prefetch setting changes from the next instruction.');
     });
+    const ob = $('trace-opt'), op = $('trace-opts');
+    const setOpt = on => { op.hidden = !on; ob.setAttribute('aria-expanded', on ? 'true' : 'false'); };
+    ob.addEventListener('click', () => setOpt(op.hidden));
+    document.addEventListener('pointerdown', e => { if (!op.hidden && !op.contains(e.target) && !ob.contains(e.target)) setOpt(false); });
+    op.addEventListener('keydown', e => { if (e.key === 'Escape') { e.stopPropagation(); setOpt(false); ob.focus(); } });
     const min = $('trace-min');
     const setMin = on => {
       $('trace').classList.toggle('trace-folded', on);
@@ -359,13 +415,14 @@ class App {
     tip('trace-count', 'This step and the number of steps in the instruction.', 'Step count');
     tip('trace-text', 'What happens in this step, in full sentences.', 'Explanation');
     tip('trace-min', 'Show or hide the list of all the steps of this instruction. Click a step in the list to go to it.', 'Step list');
+    tip('trace-opt', 'Trace options: how the trace shows the repeats of a loop, and the code fetches of the prefetch.', 'Trace options');
     tip('trace-prev', 'Back one step. Keys: B or comma. The picture goes back; the machine cannot run backward.', 'Back');
     tip('trace-next', 'Next step. Keys: N, period or Space. At the last step, the next instruction starts.', 'Next');
     tip('trace-skip', 'Skip: step over this instruction. A CALL, an INT or a loop runs fast, and the trace continues at the next instruction. Key: S.', 'Skip');
     tip('trace-rep-l', 'Repeats. Once: code that the trace showed a short time ago runs fast (the next pass of a loop, the next REP iteration). All: the trace shows every pass.', 'Repeats');
     tip('trace-pre-l', 'How to show the code fetches of the BIU: as 1 step, as 3 steps (address, command, data), or not at all.', 'Prefetch');
     tip('tg-trace', 'Trace: play each instruction as steps that you can follow one at a time. The speed slider sets the time of a step.', 'Trace');
-    tip('tg-decap', 'Decap: open the packages of all the chips on the 3D board, so you see the dies.', 'Decap');
+    tip('btn-opts', 'More run options: follow the action, and watch the BIOS boot.', 'More options');
     tip('tg-sfx', 'Effects: small ticks and clicks when a signal arrives or a step starts. They start after your first click on the page.', 'Sound effects');
     const sfx = $('opt-sfx');
     if (sfx && typeof Sfx !== 'undefined') {
@@ -379,9 +436,11 @@ class App {
     const opt = this.el('opt-decap'), b = this.views.board;
     if (!opt) return;
     opt.checked = !!storage.get('decap', false);
-    const apply = () => { if (b && b.ok) { if (opt.checked) b.decapAll(); else b.restoreAll(); } };
+    // (the switch is the "Open chips" button of the 3D board)
+    const sync = () => { if (b && b.decapBtn) b.decapBtn.setAttribute('aria-pressed', opt.checked ? 'true' : 'false'); };
+    const apply = () => { if (b && b.ok) { if (opt.checked) b.decapAll(); else b.restoreAll(); } sync(); };
     opt.addEventListener('change', () => { storage.set('decap', opt.checked); apply(); });
-    if (opt.checked) apply();
+    if (opt.checked) apply(); else sync();
   }
   setTrace(on) {
     this.traceOn = !!on;
@@ -394,6 +453,9 @@ class App {
   syncTracePanel() {
     const t = this.el('trace');
     if (t) t.hidden = !this.traceActive();
+    // (with the trace, Next and Skip step; the Instr button comes back without the trace. F8 stays.)
+    const si = this.el('btn-step');
+    if (si) si.hidden = this.traceActive();
     if (!this.play || !this.play.story) this.renderTrace(null);
   }
   // Next step. When the instruction has no more steps, the next instruction starts.
@@ -606,7 +668,9 @@ class App {
     };
     this.toggleCode = on => {
       on = on === undefined ? !document.body.classList.contains('code-hidden') : on;
-      set('code-hidden', 'btn-hide-code', on, LBL.code); storage.set('codeHidden', on); this.relayout();
+      set('code-hidden', 'btn-hide-code', on, LBL.code); storage.set('codeHidden', on);
+      if (this.placeMonitor) this.placeMonitor();
+      this.relayout();
     };
     this.toggleDock = on => {
       on = on === undefined ? !document.body.classList.contains('dock-hidden') : on;
@@ -685,9 +749,10 @@ class App {
   }
 
 
-  // The CGA monitor floats on the stage. It can be detached (a free window over the
-  // page, moved by its title bar and resized at the corner), opened in its own
-  // window, or, on narrow screens, placed in the dock.
+  // The screen is at the bottom of the program pane (the program and its output together); when
+  // that pane is hidden, it floats on the stage. It can be detached (a free window over the page,
+  // moved by its title bar and resized at the corner), opened in its own window, or, on narrow
+  // screens, placed in the dock.
   monitorUi() {
     const mon = this.el('monitor'), size = this.el('btn-mon-size'), min = this.el('btn-mon-min');
     const det = this.el('btn-mon-detach'), own = this.el('btn-mon-window'), grip = this.el('mon-grip');
@@ -784,15 +849,52 @@ class App {
       if (docked && mon.classList.contains('detached')) { mon.classList.remove('detached'); mon.style.left = mon.style.top = mon.style.width = ''; }
       if (mon.classList.contains('detached') || mon.classList.contains('in-window')) return;
       mon.classList.toggle('docked', docked);
+      const side = !docked && !document.body.classList.contains('code-hidden');
+      mon.classList.toggle('side', side);
       if (docked) { mon.classList.remove('min', 'large'); this.el('dock').prepend(mon); }
-      else this.el('stage').insertBefore(mon, this.el('now'));
+      else if (side) { mon.classList.remove('large'); this.el('pane-code').appendChild(mon); }
+      else { mon.classList.toggle('large', !!storage.get('monLarge', false)); this.el('stage').insertBefore(mon, this.el('now')); }
+      this.crt.setFit(!mon.classList.contains('large'));
       requestAnimationFrame(() => this.onResize());
     };
+    this.placeMonitor = place;
     if (mq.addEventListener) mq.addEventListener('change', place);
     setLarge(storage.get('monLarge', false));
     setMin(storage.get('monMin', false));
     place();
     if (!mq.matches && storage.get('monDetached', false)) setDetached(true);
+  }
+
+  // The start card: on the first visit, two clear ways in (the guided story, or an own program).
+  // It covers only the view; a choice, Esc or a click outside closes it, and it does not come back.
+  startCard() {
+    // (not in the test tools: a browser under automation; #start in the address shows it again)
+    if (location.hash !== '#start' && (storage.get('startSeen', false) || navigator.webdriver || window.matchMedia('(max-width: 900px)').matches)) return;
+    const stage = this.el('stage');
+    const card = htmlEl('section', { class: 'start-card', role: 'dialog', 'aria-labelledby': 'start-title' }, stage);
+    htmlEl('h2', { id: 'start-title' }, card, 'See how a PC runs a program');
+    htmlEl('p', null, card, `This page emulates a real PC (now the ${this.model === '80586' ? 'Pentium' : this.model === '80686' ? 'Pentium Pro' : this.model} machine) and shows each signal on the board and inside the chips.`);
+    const row = htmlEl('div', { class: 'start-row' }, card);
+    const go = htmlEl('button', { type: 'button', class: 'start-btn start-main' }, row);
+    htmlEl('b', null, go, '▶ Watch the guided story');
+    htmlEl('span', null, go, 'A short program, one step at a time, with a caption for each step.');
+    const own = htmlEl('button', { type: 'button', class: 'start-btn' }, row);
+    htmlEl('b', null, own, 'Write and run a program');
+    htmlEl('span', null, own, 'Use the editor at the left, then press Run, or Next for one step.');
+    htmlEl('p', { class: 'start-fine' }, card, 'Click the title to choose another machine. The ? button opens the help.');
+    const close = () => {
+      if (!card.isConnected) return;
+      card.remove(); storage.set('startSeen', true);
+      document.removeEventListener('keydown', onKey, true); document.removeEventListener('pointerdown', onOut, true);
+    };
+    const onKey = e => { if (e.key === 'Escape') close(); };
+    const onOut = e => { if (!card.contains(e.target)) close(); };
+    go.addEventListener('click', () => { close(); const b = this.el('btn-explain'); if (b) b.click(); });
+    this.el('btn-explain').addEventListener('click', close);
+    own.addEventListener('click', () => { close(); this.el('code-input').focus(); });
+    document.addEventListener('keydown', onKey, true);
+    setTimeout(() => document.addEventListener('pointerdown', onOut, true), 0);
+    setTimeout(() => go.focus({ preventScroll: true }), 50);
   }
 
   // The model selector at the title: the page reloads with the other machine.
@@ -1047,6 +1149,13 @@ class App {
     return { pos, idx: Math.round(pos / 10), mode: 'fast', cps, label: fmtHz(cps) };
   }
   setSpeed(i, silent) { this.setSpeedPos(i * 10, silent); }
+  // Slow motion (the left part of the speed slider): the index in MOTION.
+  setMotion(i) {
+    if (i === this.motionIdx) return;
+    this.motionIdx = i;
+    AnimClock.setScale(MOTION[i]);
+    storage.set('motion', i);
+  }
   setSpeedPos(pos, silent) {
     const s = this.spd = this.speedAt(pos);
     this.speedPos = s.pos;
@@ -1055,9 +1164,12 @@ class App {
     const prev = this.mode;
     this.mode = s.mode;
     const out = this.el('speed-out'), rng = this.el('speed');
-    const label = s.label;
+    const slow = this.motionIdx !== undefined && this.motionIdx < MOTION.length - 1;
+    const label = slow ? `slow motion ${MOTION_LABEL[this.motionIdx]}` : s.label;
     out.textContent = label;
-    if (+rng.value !== s.pos) rng.value = s.pos;
+    out.classList.toggle('slowmo', slow);
+    const rv = slow ? this.motionIdx * 10 : SLOW + s.pos;
+    if (+rng.value !== rv) rng.value = rv;
     rng.setAttribute('aria-valuetext', label);
     if (!silent) { storage.set('speedPos', s.pos); storage.set('speed', i); storage.set('speedSet', true); }
     this.audio.setTone(this.toneOn() ? this.machine.lastTone : 0);

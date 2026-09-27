@@ -1743,8 +1743,9 @@ class TimingView {
     // more scroll room when the trace panel covers the bottom rows
     const extra = this.occB > bottom ? Math.ceil((this.occB - bottom + 8) / 32) * 32 : 0;
     const gapH = 5;
-    const rowH = clamp((scH - bottom - lane - nGroups * gapH) / (nRows + 0.9), nRows > 25 ? 11.5 : 12, 24);
-    const fs = rowH < 14 ? 10 : 11;
+    // (a row is at least 15 px high, so the names do not touch; the view scrolls when it must)
+    const rowH = clamp((scH - bottom - lane - nGroups * gapH) / (nRows + 0.9), 15, 24);
+    const fs = rowH < 17 ? 11 : 12;
     const cw = this.charW * fs / 11;
     const nameW = Math.ceil(13 * cw) + 30;
     const valW = narrow ? 0 : Math.ceil(5 * cw) + 10;

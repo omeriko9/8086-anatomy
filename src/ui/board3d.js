@@ -1002,10 +1002,13 @@ const { BoardView, RunnerView, BoardKit } = (() => {
     // labels: they fade when the fine structure takes over
     g.save();
     g.globalAlpha = S > 3 ? clamp(1.6 - S / 9, 0.18, 1) : 1;
+    // (S: the scale of a detail tile; a tile has about 1 canvas px for each screen px, so 26 / S keeps
+    // a name at about 26 px on the screen when the camera is close)
+    const sMax = Math.min(Math.min(dw, dh) * 0.042, 26 / Math.max(1, S));
     for (const [x, y, w, h, label] of blocks) {
       // the name is always horizontal: in a narrow unit it goes on more lines (the words one
-      // under the other), at the largest size that fits
-      const { lines, s } = turn ? labelLines(label, h, w) : labelLines(label, w, h);
+      // under the other), at the largest size that fits, and not larger than sMax
+      const fit = turn ? labelLines(label, h, w) : labelLines(label, w, h), lines = fit.lines, s = Math.min(fit.s, sMax);
       if (s < 1.6) continue;
       g.save(); g.translate(x + w / 2, y + h / 2);
       if (turn) g.rotate(Math.PI / 2);
@@ -1519,8 +1522,9 @@ const { BoardView, RunnerView, BoardKit } = (() => {
   .bv-btn { border: 0; background: transparent; color: var(--muted); font: 600 12px/1 var(--sans); letter-spacing: .02em;
     padding: 7px 12px; border-radius: 999px; transition: color .2s, background .2s, box-shadow .2s; }
   .bv-btn:hover { color: var(--text); background: color-mix(in srgb, var(--ceramic-hi) 40%, transparent); }
-  .bv-btn[aria-pressed="true"] { color: var(--void); background: linear-gradient(180deg, var(--gold-hi), var(--gold));
-    box-shadow: 0 0 14px -3px var(--gold); }
+  /* (a pressed camera view or switch: a quiet state; the bright fill is for the main actions only) */
+  .bv-btn[aria-pressed="true"] { color: var(--gold-hi); background: color-mix(in srgb, var(--gold) 16%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--gold) 70%, transparent); }
   .bv-btn:focus-visible { outline: 2px solid var(--gold-hi); outline-offset: 1px; }
   .bv-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 0; padding: 0 8px; list-style: none;
     font: 11px/1.2 var(--mono); color: var(--muted); }
@@ -1899,16 +1903,22 @@ const { BoardView, RunnerView, BoardKit } = (() => {
   // The Pentium pipes and branch prediction, as cards: a 'pipe' event (U or V, paired or the
   // reason for no pair) or a 'btb' event (the lookup, the 2-bit counter, right or wrong).
   const BTB_STATE = ['strongly not taken', 'weakly not taken', 'weakly taken', 'strongly taken'];
+  // The stages of a pipe event [PF, D1, D2, EX, WB] (the younger ones first). After a HLT in an older
+  // stage, the younger stages hold the bytes after the HLT (the prefetcher took them, and the decoder
+  // sees them as instructions, often "add [bx+si], al" for zero bytes); they never execute, so they
+  // show as empty. hlt: true when a stage was cut.
+  function pipeStages(e) { return pipeAfterHalt(e.stage); }   // (theme.js)
   function P5_CARDS(e) {
     // the 80486: one pipeline of 5 stages (no U and V pipes)
     if (e.k === 'pipe' && !e.pipe) {
-      const st = e.stage || [];
-      return [['INSTRUCTION DECODER', tcard('pipe', 'PIPELINE', '80486', 'The 5 stages of the pipeline work on 5 instructions at the same time. Each clock, each instruction moves one stage on.',
-        { stages: ['PF', 'D1', 'D2', 'EX', 'WB'], rows: [{ name: '', items: st.slice(0, 5).map(x => String(x || '').replace(/\s*;.*$/, '')) }], cur: 3,
+      const st = pipeStages(e);
+      return [['INSTRUCTION DECODER', tcard('pipe', 'PIPELINE', '80486', 'The 5 stages of the pipeline work on 5 instructions at the same time. Each clock, each instruction moves one stage on.' +
+        (st.hlt ? ' HLT stops the CPU: the bytes after it do not go on in the pipeline.' : ''),
+        { stages: ['PF', 'D1', 'D2', 'EX', 'WB'], rows: [{ name: '', items: st }], cur: 3,
           lines: ['PF ' + (st[0] || '—'), 'D1 ' + (st[1] || '—'), 'D2 ' + (st[2] || '—'), 'EX ' + (st[3] || '—'), 'WB ' + (st[4] || '—')] })]];
     }
     if (e.k === 'pipe') {
-      const u = e.pipe !== 'V', st = (e.stage || []).map(x => String(x || '').replace(/\s*;.*$/, ''));
+      const u = e.pipe !== 'V', st = pipeStages(e);
       // the two pipes: this instruction in its pipe (in the EX stage now), the partner in the other one
       const me = st[3] || '', mate = e.paired ? e.partner || '' : '';
       const rowU = u ? [st[0], st[1], st[2], me, st[4]] : ['', '', '', mate, ''], rowV = u ? ['', '', '', mate, ''] : [st[0], st[1], st[2], me, st[4]];
@@ -2129,7 +2139,9 @@ const { BoardView, RunnerView, BoardKit } = (() => {
       }, root);
       htmlEl('div', { class: 'bv-vignette', 'aria-hidden': 'true' }, root);
       const top = htmlEl('div', { class: 'bv-top' }, root);
-      const bar = htmlEl('div', { class: 'bv-presets', role: 'group', 'aria-label': 'Camera views' }, top);
+      // (the first row: the switch of the board views (the app puts it here), then the camera views)
+      const row0 = this.modeSlot = htmlEl('div', { class: 'bv-row' }, top);
+      const bar = htmlEl('div', { class: 'bv-presets', role: 'group', 'aria-label': 'Camera views' }, row0);
       this.presetBtns = {};
       for (const k in PRESETS) {
         const b = htmlEl('button', { type: 'button', class: 'bv-btn', 'aria-pressed': 'false', 'aria-label': `Camera view: ${PRESETS[k].label}` }, bar, PRESETS[k].label);
@@ -2141,6 +2153,10 @@ const { BoardView, RunnerView, BoardKit } = (() => {
       this.followBtn = htmlEl('button', { type: 'button', class: 'bv-btn bv-follow', 'aria-pressed': 'false',
         'aria-label': 'Camera: follow the busy chips', title: 'Follow the action: the camera goes to the chip where the work is (a disk, the sound card, the video card …). The same as the "Follow action" switch. A drag or a camera view pauses it; press Follow again.' }, bar, 'Follow');
       this.followBtn.addEventListener('click', () => this.setChase(!this.chaseOn()));
+      // Open chips: open the packages of all the chips, so the dies show (the decap switch)
+      this.decapBtn = htmlEl('button', { type: 'button', class: 'bv-btn', 'aria-pressed': 'false', 'aria-label': 'Open the packages of all the chips',
+        title: 'Open chips: take the lids off all the chips, so you see the dies. Click again to close them.' }, bar, 'Open chips');
+      this.decapBtn.addEventListener('click', () => { const o = document.getElementById('opt-decap'); if (o) { o.checked = !o.checked; o.dispatchEvent(new Event('change')); } });
       // the decap tools moved to the "Decap" switch in the bottom bar
       this.toolBtns = {};
       const lg = htmlEl('ul', { class: 'bv-legend', 'aria-hidden': 'true' }, top);
@@ -2150,7 +2166,8 @@ const { BoardView, RunnerView, BoardKit } = (() => {
         htmlEl('i', null, li);
         htmlEl('span', null, li, t);
       }
-      this.hint = htmlEl('p', { class: 'bv-hint' }, top, 'Drag to move · right-drag or Shift to turn · scroll to zoom · double-click a chip to focus');
+      // (the mouse hint is in the help and in the label of the view; the board has no line of it)
+      this.hint = htmlEl('p', { class: 'bv-hint', hidden: '' }, top, '');
       this.focusPill = htmlEl('div', { class: 'bv-focus', role: 'status' }, root);
       htmlEl('span', { class: 'bv-focus-tag' }, this.focusPill, 'Focus');
       this.focusName = htmlEl('b', null, this.focusPill, '');
@@ -6307,7 +6324,7 @@ const { BoardView, RunnerView, BoardKit } = (() => {
     xpCardStep(now) {
       const c = this.xpCard;
       this.showCard(c.spec, clamp((now - c.t0) / c.dur, 0, 1));
-      if (this.bcard) this.bcard.place(12, 122);   // (under the program strip; placeTrace needs a step)
+      if (this.bcard) this.bcard.place(12, this.xpTopPx || 60);   // (under the program strip; placeTrace needs a step)
       return true;
     }
     // Explain: the times and the camera shots of a step. The token moves at XP_PX_S on the screen
@@ -6663,10 +6680,10 @@ const { BoardView, RunnerView, BoardKit } = (() => {
       else if (id === 'cga') obj = this.card;
       else if (id === 'drives') obj = this.bay;
       else if (id.startsWith('die:')) { const e = this.decaps.get(id.slice(4)); obj = e ? e.mesh : null; }
-      else if (id === 'screenTL' && this.scrMesh) {          // the top-left part of the screen (the first cells)
+      else if (id === 'screenTL' && this.scrMesh) {          // the top-left quarter of the screen (the first cells and the corner)
         const s = this.scrMesh, box = new T.Box3();
         s.updateWorldMatrix(true, false);
-        for (const [x, y] of [[-5.3, 4.0], [-3.9, 4.0], [-5.3, 2.9], [-3.9, 2.9]]) box.expandByPoint(s.localToWorld(new T.Vector3(x, y, 0.33)));
+        for (const [x, y] of [[-5.7, 4.4], [0.6, 4.4], [-5.7, 0.4], [0.6, 0.4]]) box.expandByPoint(s.localToWorld(new T.Vector3(x, y, 0.33)));
         this.xpBoxes.set(id, box);
         return box;
       }
@@ -6771,6 +6788,7 @@ const { BoardView, RunnerView, BoardKit } = (() => {
         if (n) rects.push([x0, y0, x1 - x0, y1 - y0]);
       };
       const tr = this.tr;
+      let uR = null;
       if (tr && tr.rider && !this.xpForce) {
         const dies = new Set();
         for (const g of tr.rider.J.segs) {
@@ -6780,8 +6798,17 @@ const { BoardView, RunnerView, BoardKit } = (() => {
         }
         for (const e of dies) { const b = new T.Box3().setFromObject(e.mesh); boxRect(b); }
         if (tr.rider.at) { const q = scr(tr.rider.at.pos); if (q) rects.push([q[0] - 40, q[1] - 40, 80, 80]); }
+        // a unit at work: the other units of its die go dim too (their names do not compete with it)
+        const sg = tr.rider.at && tr.rider.at.seg;
+        if (sg && sg.unit && sg.card && sg.dive && tr.rider.E < 1) uR = this.blockScreen(sg.dive.e, sg.block);
       } else if (this.xpIds) for (const id of this.xpIds) { const b = this.xpBox(id); if (b) boxRect(b); }
-      const key = [w, h, ...rects.map(r => r.map(v => Math.round(v / 3)).join(',')), ...paths.map(p => p.length + ':' + Math.round(p[0][0] / 3) + ',' + Math.round(p[p.length - 1][1] / 3))].join('|');
+      // (the dim around the unit fades in and out)
+      this.spotU = (this.spotU || 0) + ((uR ? 1 : 0) - (this.spotU || 0)) * 0.12;
+      if (!uR && this.spotU < 0.02) this.spotU = 0;
+      if (uR) this.spotUR = uR;
+      const uA = this.spotU && this.spotUR ? this.spotU : 0, UR = this.spotUR;
+      const key = [w, h, ...rects.map(r => r.map(v => Math.round(v / 3)).join(',')), ...paths.map(p => p.length + ':' + Math.round(p[0][0] / 3) + ',' + Math.round(p[p.length - 1][1] / 3)),
+        Math.round(uA * 25), uA ? [UR.x, UR.y, UR.w, UR.h].map(v => Math.round(v / 3)).join(',') : ''].join('|');
       if (key === this.spotKey) return;
       this.spotKey = key;
       const g = this.spotG;
@@ -6796,6 +6823,59 @@ const { BoardView, RunnerView, BoardKit } = (() => {
       for (const [x, y, rw, rh] of rects) { g.beginPath(); g.roundRect ? g.roundRect(x - 22, y - 22, rw + 44, rh + 44, 26) : g.rect(x - 22, y - 22, rw + 44, rh + 44); g.fill(); }
       g.lineWidth = 46; g.lineJoin = 'round'; g.lineCap = 'round';
       for (const pts of paths) { g.beginPath(); pts.forEach((q, i) => (i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1]))); g.stroke(); }
+      g.filter = 'none';
+      if (uA) {
+        // all but the unit at work: a second dim layer
+        g.globalCompositeOperation = 'source-over';
+        g.fillStyle = `rgba(7, 4, 11, ${(0.6 * uA).toFixed(3)})`;
+        g.fillRect(0, 0, w, h);
+        g.globalCompositeOperation = 'destination-out';
+        g.filter = 'blur(8px)';
+        g.fillStyle = '#000';
+        const m = 12;
+        g.beginPath(); g.roundRect ? g.roundRect(UR.x - m, UR.y - m, UR.w + 2 * m, UR.h + 2 * m, 12) : g.rect(UR.x - m, UR.y - m, UR.w + 2 * m, UR.h + 2 * m); g.fill();
+        g.filter = 'none';
+      }
+      g.globalCompositeOperation = 'source-over';
+    }
+    // The trace outside Explain: while a unit of a die works and it is large on the screen, the
+    // rest of the view goes dim (the same second layer as the spotlight of Explain), so the eye goes
+    // to the unit and its drawing. It fades in and out.
+    drawUnitDim() {
+      const r = this.tr && this.tr.rider, sg = r && r.at && r.at.seg;
+      let uR = null;
+      if (sg && sg.unit && sg.card && sg.dive && r.E < 1 && !this.reduced) {
+        const R = this.blockScreen(sg.dive.e, sg.block);
+        if (R && R.w > 110 && R.h > 70) uR = R;
+      }
+      this.udimA = (this.udimA || 0) + ((uR ? 1 : 0) - (this.udimA || 0)) * 0.12;
+      if (!uR && this.udimA < 0.02) this.udimA = 0;
+      if (uR) this.udimR = uR;
+      if (!this.udimA) {
+        if (this.spotCv && !this.spotCv.hidden) { this.spotCv.hidden = true; this.spotKey = ''; }
+        return;
+      }
+      if (!this.spotCv) {
+        this.spotCv = htmlEl('canvas', { class: 'bv-spot', 'aria-hidden': 'true' }, this.root);
+        this.spotG = this.spotCv.getContext('2d');
+      }
+      const cv = this.spotCv, w = this.w, h = this.h, dpr = Math.min(2, window.devicePixelRatio || 1), U = this.udimR, a = this.udimA;
+      cv.hidden = false;
+      if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); this.spotKey = ''; }
+      const key = ['u', w, h, Math.round(a * 25), ...[U.x, U.y, U.w, U.h].map(v => Math.round(v / 3))].join('|');
+      if (key === this.spotKey) return;
+      this.spotKey = key;
+      const g = this.spotG;
+      g.setTransform(dpr, 0, 0, dpr, 0, 0);
+      g.clearRect(0, 0, w, h);
+      g.globalCompositeOperation = 'source-over';
+      g.fillStyle = `rgba(7, 4, 11, ${(0.55 * a).toFixed(3)})`;
+      g.fillRect(0, 0, w, h);
+      g.globalCompositeOperation = 'destination-out';
+      g.filter = 'blur(8px)';
+      g.fillStyle = '#000';
+      const m = 12;
+      g.beginPath(); g.roundRect ? g.roundRect(U.x - m, U.y - m, U.w + 2 * m, U.h + 2 * m, 12) : g.rect(U.x - m, U.y - m, U.w + 2 * m, U.h + 2 * m); g.fill();
       g.filter = 'none';
       g.globalCompositeOperation = 'source-over';
     }
@@ -7032,11 +7112,16 @@ const { BoardView, RunnerView, BoardKit } = (() => {
         this.trLabs.push({ el, at: w.at ? w.at.clone() : this.trPos(w.id), born: rn, dying: 0 });
       }
     }
-    // The caption bar of the trace covers the bottom of the stage: move the picture up by
-    // half of its height, so the middle of the free part is the middle of the view.
+    // When the caption bar of the trace covers the bottom of the view (it is now under the view,
+    // so only a small window can make it cover), move the picture up by half of the part that it
+    // covers, so the middle of the free part is the middle of the view.
     trViewOffset() {
       const bar = this.tr ? document.getElementById('trace') : null;
-      const hgt = bar && !bar.hidden && bar.offsetParent ? bar.offsetHeight + 10 : 0;
+      let hgt = 0;
+      if (bar && !bar.hidden && bar.offsetParent) {
+        const a = bar.getBoundingClientRect(), b = this.host.getBoundingClientRect();
+        if (a.top < b.bottom && a.bottom > b.top && a.left < b.right && a.right > b.left) hgt = b.bottom - a.top + 10;
+      }
       const want = Math.round(Math.min(hgt, this.h * 0.5) / 2);
       if (Math.abs(want - (this.trOff || 0)) < 3) return;
       this.trOff = want;
@@ -7123,12 +7208,14 @@ const { BoardView, RunnerView, BoardKit } = (() => {
     xpCovers() {
       const tc = this.trCover(true), out = { left: tc.left, right: tc.right, top: 0, bottom: 0 };
       if (!this.xp || !this.renderer) return out;
-      if (!out.left) out.left = (this.cardEl && this.cardEl.offsetWidth || 450) + 24;
+      // (Explain has no card at the side of a unit: only the clock card of the tour)
+      out.left = this.xpCard ? (this.cardEl && this.cardEl.offsetWidth || 450) + 24 : 0;
       const hr = this.renderer.domElement.getBoundingClientRect();
       if (!hr.height) return out;
       const P = this.root.querySelector('.xp3-prog'), B = this.root.querySelector('.xp3-bar');
       if (P && P.offsetParent) out.top = clamp(P.getBoundingClientRect().bottom - hr.top + 8, 0, hr.height * 0.4);
       if (B && B.offsetParent) out.bottom = clamp(hr.bottom - B.getBoundingClientRect().top + 8, 0, hr.height * 0.5);
+      this.xpTopPx = out.top;
       return out;
     }
     // The parts of the view that other things cover: the block card at the left, and the
@@ -7229,15 +7316,39 @@ const { BoardView, RunnerView, BoardKit } = (() => {
       this.uFx.set(key, o);
       return o;
     }
-    paintUnit(o, spec, u, now) {
+    // zs: canvas px for one px of the drawing (0: the drawing picks it from the canvas size)
+    paintUnit(o, spec, u, now, zs = 0) {
       if (typeof UnitFx === 'undefined' || !spec) return;
       o.g.clearRect(0, 0, o.cw, o.ch);
-      // a dark backing, so the large painted name of the unit does not show through the drawing
-      o.g.fillStyle = 'rgba(6, 8, 16, 0.9)';
+      // a dark backing, so the painted name of the unit does not show through the drawing
+      o.g.fillStyle = 'rgb(6, 8, 16)';
       o.g.fillRect(0, 0, o.cw, o.ch);
-      try { UnitFx.draw(o.g, o.cw, o.ch, spec, u, now, this.reduced); o.words = UnitFx.words || []; } catch (err) { /* keep the die art */ }
+      try { UnitFx.draw(o.g, o.cw, o.ch, spec, u, now, this.reduced, zs); o.words = UnitFx.words || []; } catch (err) { /* keep the die art */ }
       o.tex.needsUpdate = true;
       o.spec = spec; o.u = u;
+    }
+    // Explain: the scale of the drawing of a unit, so that 1 px of the drawing is about 1 px on the
+    // screen (the words keep their size). It changes only for a new card or a large zoom (the
+    // drawing does not move while the camera settles).
+    unitZoom(o, sg) {
+      const R = this.blockScreen(sg.dive.e, sg.block);
+      if (!R || !(R.w > 8) || !(R.h > 8)) return o.zs || 0;
+      const want = clamp(Math.max(o.cw / R.w, o.ch / R.h), 1, 6);
+      if (!o.zs || o.zsSpec !== sg.card || Math.abs(Math.log(want / o.zs)) > 0.4) { o.zs = want; o.zsSpec = sg.card; }
+      return o.zs;
+    }
+    // The screen rectangle of a unit of a die in px of the view (null: not in front of the camera).
+    blockScreen(e, label) {
+      const b = this.layOf(e).blocks[this.bIdx(e, label)];
+      if (!b || !this.w) return null;
+      let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+      for (const q of [[b.x, b.y], [b.x + b.w, b.y], [b.x, b.y + b.h], [b.x + b.w, b.y + b.h]]) {
+        const p = this.dieW(e, q, 0.006).project(this.camera);
+        if (p.z > 1) return null;
+        const sx = (p.x + 1) / 2 * this.w, sy = (1 - p.y) / 2 * this.h;
+        x0 = Math.min(x0, sx); x1 = Math.max(x1, sx); y0 = Math.min(y0, sy); y1 = Math.max(y1, sy);
+      }
+      return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
     }
     // Outside the trace: when the camera is close to an open die, each micro-event plays
     // the drawing of its unit (the same cards as the trace), one unit after the other.
@@ -7348,7 +7459,8 @@ const { BoardView, RunnerView, BoardKit } = (() => {
       // small tag above the unit (no window over it)
       // (the rectangle of the unit on the screen: the tooltips of the words of its drawing)
       this.uRect = spec && r && a ? { r, spec } : null;
-      if (this.xp && this.xp.shots) {
+      // the unit itself shows its work (UnitFx on the die); the title and the facts go in the tag
+      if (typeof UnitFx !== 'undefined') {
         if (this.win) { this.win.el.style.opacity = 0; this.win.el.style.visibility = 'hidden'; }
         this.unitTag(spec, r, a);
         return 0;
@@ -7381,14 +7493,16 @@ const { BoardView, RunnerView, BoardKit } = (() => {
       if (this.uTagSpec !== spec) {
         this.uTagSpec = spec;
         el.textContent = '';
-        htmlEl('b', null, el, String(spec.title || ''));
+        // the name of the work in normal case (a short name such as TLB or a word with a digit stays)
+        const t = String(spec.title || '').split(' ').map((w, k) => (/\d/.test(w) || /^(TLB|ALU|FPU|ROM|RAM|BTB|ROB|RS|RAT|RRF|LRU|EU|BIU|AU|IU|BU|AGU|FIFO|MOB|DSP|OPL|EIP|IP|CS|DS|ES|SS|FS|GS|SP|I\/O|IO|U|V|PF|EX|WB|µOPS?)$/.test(w) ? w : k ? w.toLowerCase() : w.charAt(0) + w.slice(1).toLowerCase())).join(' ');
+        htmlEl('b', null, el, t);
         const facts = (Array.isArray(spec.lines) ? spec.lines : []).filter(Boolean).slice(0, 3).join(' · ');
         if (facts) htmlEl('span', null, el, facts);
       }
-      const x = clamp(r.x + r.w / 2, 140, this.w - 140), top = r.y - 10;
+      const x = clamp(r.x + r.w / 2, 140, this.w - 140), top = r.y - 10, lim = this.xp ? (this.xpTopPx || 60) + 44 : 128;
       // above the unit; when there is no room (under the program strip), in the top of the unit
-      const y = top < 132 ? r.y + 8 : top;
-      el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) translate(-50%, ${top < 132 ? '0' : '-100%'})`;
+      const y = top < lim ? r.y + 8 : top;
+      el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) translate(-50%, ${top < lim ? '0' : '-100%'})`;
       el.style.opacity = a;
     }
     showCard(spec, u) {
@@ -7489,8 +7603,14 @@ const { BoardView, RunnerView, BoardKit } = (() => {
           const o = sg.card && typeof UnitFx !== 'undefined' ? this.unitOverlay(sg.dive.e, sg.block) : null;
           // with a drawing of the unit's work, only a thin edge glows (no bright fill over it)
           for (const g of this.blockGlows(sg.dive.e, sg.block)) { g.tgt = o ? 0.5 : 1; g.mat.uniforms.uFill.value = o ? 0 : 0.16; }
-          if (o) { o.tgt = 1; fxOn.add(o); this.paintUnit(o, sg.card, u, now); this.lastUnit = o; }
-          if (this.xpForce) this.showCard(null); else { this.showCard(sg.card, u); this.trWin = { sg, u }; }
+          if (o) { o.tgt = 1; fxOn.add(o); this.paintUnit(o, sg.card, u, now, this.unitZoom(o, sg)); this.lastUnit = o; }
+          // a unit of a die shows its work itself (its drawing on the die, and a tag above it): no
+          // card at the side, no window over it
+          if (this.xpForce) this.showCard(null);
+          // (a card of text only: the camera does not come close to the unit outside Explain, so the
+          // card at the side keeps the text)
+          else if (o && (sg.card.kind !== 'text' || (this.xp && this.xp.shots))) { this.showCard(null); this.trWin = { sg, u }; }
+          else { this.showCard(sg.card, u); this.trWin = { sg, u }; }
           this.cardAt = sg.card ? sg.at : this.cardAt;
         } else if (sg.dive) {
           // between two blocks of the same chip: the last card stays
@@ -7581,8 +7701,8 @@ const { BoardView, RunnerView, BoardKit } = (() => {
       if (this.xpForce) this.trTok.style.opacity = 0;
       else if (this.trInDie && this.trTokAt) {
         // inside a die the label must not cover the units: it stays at the top of the view
-        this.trTok.style.opacity = this.trInCard && this.cardShown ? 0 : 1;
-        this.trTok.style.transform = `translate(${(w / 2).toFixed(1)}px, ${this.xp ? 122 : 8}px) translate(-50%, 0)`;
+        this.trTok.style.opacity = this.trInCard ? 0 : 1;
+        this.trTok.style.transform = `translate(${(w / 2).toFixed(1)}px, ${this.xp ? (this.xpTopPx || 60) : 8}px) translate(-50%, 0)`;
       } else put(this.trTok, this.trTokAt, -18, !!this.trTokAt && !(this.trInCard && this.cardShown));
       const up = new T.Vector3(0, 0.55, 0);
       const close = this.cam.r < 4;
@@ -7596,7 +7716,7 @@ const { BoardView, RunnerView, BoardKit } = (() => {
       // the block card sits at the left; a line goes from the card to its block
       if (this.cardShown && this.cardEl) {
         const narrow = w < 640;
-        const cx = 12, cy = this.xp ? 122 : narrow ? 8 : 52;
+        const cx = 12, cy = this.xp ? (this.xpTopPx || 60) : narrow ? 8 : 52;
         this.bcard.place(cx, cy);
         if (!this.trLine) {
           this.trLine = svgEl('svg', { class: 'bv-cardline', 'aria-hidden': 'true' });
@@ -7700,6 +7820,7 @@ const { BoardView, RunnerView, BoardKit } = (() => {
       this.renderer.render(this.scene, this.camera);
       this.placeTrace();
       if (this.xp) this.drawSpot(now);
+      else this.drawUnitDim();
       this.lastRender = s.rnow;
       this.dirty = false;
     }
@@ -7812,7 +7933,7 @@ const { BoardView, RunnerView, BoardKit } = (() => {
       this.into = storage.get('runInto', true);
       this.zoomT = this.zoomS = clamp(+storage.get('runZoom', 1) || 1, 0.3, 4);
       this.sfx = new RunnerSfx();
-      this.sfx.want = !!storage.get('runSfx', true);
+      this.sfx.want = true;   // (the Effects switch of the Sound menu turns the runner sounds on and off)
       this.queue = [];
       this.cur = null;
       this.route = null;
@@ -7835,7 +7956,7 @@ const { BoardView, RunnerView, BoardKit } = (() => {
       this.wrap.style.cursor = 'default';
       htmlEl('div', { class: 'bv-vignette', 'aria-hidden': 'true' }, root);
       const top = htmlEl('div', { class: 'bv-top' }, root);
-      const row = htmlEl('div', { class: 'bv-row' }, top);
+      const row = this.modeSlot = htmlEl('div', { class: 'bv-row' }, top);
       const seg = (label, items, cur, cb) => {
         const g = htmlEl('div', { class: 'bv-presets', role: 'group', 'aria-label': label }, row);
         htmlEl('span', { class: 'bv-seg-label', 'aria-hidden': 'true' }, g, { 'Signal to follow': 'Follow', Camera: 'Camera', 'Into chips': 'Into chips', 'Sound effects': 'Sound' }[label]);
@@ -7855,11 +7976,6 @@ const { BoardView, RunnerView, BoardKit } = (() => {
       seg('Into chips', [['off', 'Off'], ['on', 'On']], this.into ? 'on' : 'off', k => {
         this.into = k === 'on'; storage.set('runInto', this.into);
         if (this.cur) this.setRoute(this.buildRoute(this.cur.e));
-      });
-      seg('Sound effects', [['off', 'Off'], ['on', 'On']], this.sfx.want ? 'on' : 'off', k => {
-        storage.set('runSfx', k === 'on');
-        this.sfx.setWant(k === 'on');
-        if (k === 'on' && !this.sfx.pageOn()) this.hLeg.textContent = 'Sound effects play when the Effects switch in the bottom bar is on.';
       });
       this.bindZoom();
       const hud = this.hud = htmlEl('section', { class: 'bv-hud', 'aria-hidden': 'true' }, root);

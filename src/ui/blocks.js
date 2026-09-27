@@ -640,7 +640,9 @@ const BlockPanel = (() => {
     const y0 = 22, rh = 17;
     const bxX = 96, bxW = 58;
     const ry = i => y0 + i * rh + rh / 2;
-    T(svg, 4, 9, `${regs.length} registers, 16 bits each.`, 's', 'start');
+    // (from the 386 on, the registers have 32 bits; the card shows their low 16 bits)
+    const wide = typeof CPU_MODEL !== 'undefined' && !['8086', '80286'].includes(String(CPU_MODEL));
+    T(svg, 4, 9, wide ? `${regs.length} registers of 32 bits: the low 16 bits.` : `${regs.length} registers, 16 bits each.`, 's', 'start');
     if (reads.length) T(svg, W - 4, 9, 'read: out to the ALU', 's', 'end');
     const rows = regs.map((r, i) => {
       const yy = ry(i);

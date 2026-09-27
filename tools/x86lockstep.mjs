@@ -14,6 +14,17 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
+// One fixed host time for both machines: the CMOS clock (devices286.js), the clock port and the
+// file dates read the time of the host. The two machines read it at different moments, and a
+// second boundary between the two reads made the BIOS tick count (0:046C) differ by one.
+{
+  const T0 = Date.UTC(2026, 0, 1, 12, 0, 0), RealDate = Date;
+  class FixedDate extends RealDate {
+    constructor(...a) { if (a.length) super(...a); else super(T0); }
+    static now() { return T0; }
+  }
+  globalThis.Date = FixedDate;
+}
 for (const f of ['src/asm/disasm.js', 'src/asm/assembler.js', 'src/core/fpu8087.js', 'src/core/cpu8086.js', 'src/core/cpu80286.js', 'src/core/cpu80386.js',
   'src/core/cpu80486.js', 'src/core/cpu80586.js', 'src/core/p6ooo.wasm.js', 'src/core/cpu80686.js', 'src/core/devices.js', 'src/core/disk.js', 'src/core/fdc765.js',
   'src/core/soundblaster.js', 'src/core/vga.js', 'src/core/x86core.wasm.js', 'src/core/x86wasm.js', 'src/core/machine.js', 'src/core/devices286.js',
@@ -133,7 +144,7 @@ function report(J, C, head, d) {
   for (const l of d) console.log('  ' + l);
   for (const l of deep(J, C)) console.log('  ' + l);
 }
-const t0 = Date.now();
+const t0 = performance.now();   // (Date is fixed above)
 let J = machine(false), C = machine(true), keysAt = driver();
 if (!C.wx) { console.log('FAIL: no WebAssembly core'); process.exit(1); }
 let cS = 0, jS = 0;
@@ -169,6 +180,6 @@ for (let k = 1; k <= SLICES; k++) {
     stepMode(SLICE * 4, `slice ${k}`);
     process.exit(1);
   }
-  if (k % EVERY === 0 && !QUIET) console.log(`slice ${k}: the same (${((Date.now() - t0) / 1000).toFixed(0)} s real, ${(J.cpu.cycles / J.clockHz).toFixed(2)} emulated s, ${cS} steps in C, ${jS} in JavaScript), ${where(J, false)}`);
+  if (k % EVERY === 0 && !QUIET) console.log(`slice ${k}: the same (${((performance.now() - t0) / 1000).toFixed(0)} s real, ${(J.cpu.cycles / J.clockHz).toFixed(2)} emulated s, ${cS} steps in C, ${jS} in JavaScript), ${where(J, false)}`);
 }
-console.log(`all ${SLICES} slices the same (${(J.cpu.cycles / J.clockHz).toFixed(2)} emulated s, ${cS} steps in C, ${jS} in JavaScript, ${((Date.now() - t0) / 1000).toFixed(0)} s real)`);
+console.log(`all ${SLICES} slices the same (${(J.cpu.cycles / J.clockHz).toFixed(2)} emulated s, ${cS} steps in C, ${jS} in JavaScript, ${((performance.now() - t0) / 1000).toFixed(0)} s real)`);

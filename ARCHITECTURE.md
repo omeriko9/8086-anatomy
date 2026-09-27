@@ -2695,14 +2695,15 @@ The "▶ Explain" button in the view bar starts it; Exit puts back all the setti
     van Wijk and Nuij (`xpCamera` with `zoomPath`, a smootherstep in time). Its time grows with
     the length of that path (`xpCutMs`), so a large zoom or a long way does not jump. The same
     rule gives the move at the start of a step (`traceDur` keeps it in `s._xpLead`).
-  - The close shot of a unit centers it in the free part of the view (`xpCovers`: the card at
-    the left, the program strip at the top, the caption bar at the bottom).
+  - The close shot of a unit centers it in the free part of the view (`xpCovers`: the program
+    strip at the top and the caption bar at the bottom; a card at the left only for the clock of
+    the tour, `xpCard`).
   - A short step (the later code fetches, ms < 1000) has one shot and a quarter of the work time.
     The plan sets `t0`, `t1`, `fin`, `fout` (the in and out parts of a unit) of the parts;
     `riderAt` and the unit progress read `fin`/`fout` (else FLOW_IN).
 - **One text for each unit:** while a unit works, the caption shows "chip · unit" and the text
-  of that unit (`xpNowUnit`, `xpUnitText`); the step text moves to a short line above it
-  (.xp3-ctx). The unit text stays while the token is in the same chip. The 'status' card has a
+  of that unit (`xpNowUnit`, `xpUnitText`); else the caption is the step text (there is no second
+  line). The unit text stays while the token is in the same chip. The 'status' card has a
   text for each role (the bus control of the CPU sends the status; the status decoder of the
   bus controller decodes it). tools/xpunits.mjs lists the units of the program on all models
   and the texts that two units share (there must be none).
@@ -2714,8 +2715,9 @@ The "▶ Explain" button in the view bar starts it; Exit puts back all the setti
 - **The unit itself shows its work:** in Explain there is no window over the unit. The drawing
   of its work is on the unit on the die (UnitFx on the overlay canvas of the block, above the
   path lines, under the token), and a tag above the unit (`unitTag`) gives the title and the
-  short facts of the card. UnitFx draws in a space of about 360 px and scales it to the canvas,
-  so the words keep their size on the screen. Structures of the units (the card kinds):
+  short facts of the card. UnitFx draws at the scale of the unit on the screen (`unitZoom`: 1 px
+  of the drawing is about 1 px of the screen, so the words are at least 11 px; the scale changes
+  only for a new card or a large zoom); without that scale it draws in a space of about 360 px. Structures of the units (the card kinds):
   - `cache`: the address (TAG | SET | OFFSET), the set decoder, the sets near the selected one
     and the ways of the selected set (state, tag, the bytes of the line). The lookup lights the
     set and compares the tags; the fill takes a way (wide in the selected row), writes the tag,
@@ -2775,6 +2777,73 @@ The "▶ Explain" button in the view bar starts it; Exit puts back all the setti
   AND array first for the memory) and on the chip-select line to the target (the command line
   glows as an extra line). The `bytes` card draws more than 8 bytes in rows of 8 (a cache line,
   the 16- or 32-byte queues).
+
+## The page layout after the UI review of v49 (v50)
+
+A review of v49 (screenshots of all the views at 1440×900, 1280×720 and phone size:
+`tools/uxshots.mjs`) found that the view had about 20% of the window (12% at 1280×720), that
+floating panels covered it, and that many controls had copies. The changes:
+
+- **The run controls are in the top bar** (`.transport` is inside `.topbar`; `--transport-h` is
+  0 on a desktop). On a phone they are a bar fixed to the bottom, as before (the top bar has no
+  backdrop filter there, so the fixed bar is relative to the window). The rare switches are in
+  two small menus (`.pop-menu`): **More** (`#opts-menu`: slow motion, follow action, watch the
+  BIOS boot) and **Sound** (`#sound-menu`: the machine sound `#opt-snd`, the effects `#opt-sfx`).
+  The decap switch is the **Open chips** button of the 3D board (`decapBtn`; `#opt-decap` is a
+  hidden checkbox that keeps the setting). With the trace on, the Instr button hides (Next and
+  Skip step; F8 stays).
+- **The trace panel is under the view** (in `.pane-stage`, after `#stage`), with a fixed height
+  (three lines of text), so the view does not change its size from step to step. The step list
+  and the options (repeats, prefetch: the button `#trace-opt`) open over the view. The views
+  measure the part of the view that the panel covers (`trViewOffset`, `barH`, `traceCover`): now 0.
+- **The screen is under the program** (`.monitor.side` at the end of `.pane-code`: the program
+  and its output together). When the program pane is hidden, it floats on the stage as before;
+  detach and its own window work as before (`placeMonitor`).
+- The program pane is 28% of the width (was 32%). The dock height is `--dock-h`
+  (176–232 px: lower in a low window); a card scrolls when it must.
+- **The tab bar has four tabs:** Board, Die, Bus timing, Memory (`MAIN_TABS` in app.js). The
+  Board tab shows one of three views of the board (`BOARD_MODES`: 'board' = 3D, 'top', 'runner';
+  storage `boardMode`). The switch of these modes (`#board-modes`, a radio group) goes to the left
+  of the tool bar of the view that is open: each board view gives its place (`modeSlot`), and
+  `syncBoardModes` moves the switch there. The view ids, `selectTab(id)` and the keys 1–6 stay as
+  they were ('top' and 'runner' are still views; the Board tab is selected for them).
+- **Speed and slow motion are one slider** (`#speed`, 0–150). Its left part (0–60, `SLOW`) is
+  slow motion (`MOTION`: ½× to 1/64×, the animation clock) at the slowest speed; 60–150 is the speed
+  position (`speedPos` 0–90) at 1×. The label says "slow motion ⅛×" in the left part. Storage:
+  `motion` (the index) and `speedPos` as before.
+- The Runner has no sound switch of its own: the Effects switch of the Sound menu controls its
+  sounds too.
+- **Die tab:** a click on a unit also zooms to it (`zoomToBlock`), with room for its description.
+- **The start card** (`startCard`): on the first visit, two ways in (the guided story, or an own
+  program). It covers only the view and does not come back (storage `startSeen`). It does not
+  show in a browser under automation (`navigator.webdriver`), so the tools see the page as before;
+  `#start` in the address shows it.
+- The help is new (all six machines, the views, the trace, Explain keys) and opens at its top.
+- The pressed buttons of the board tool bar have a quiet style (the bright fill is for the main
+  actions). The mouse hint line of the board is gone (it is in the help).
+- Bus timing: a row is at least 15 px high (the names do not touch; the view scrolls).
+- **Explain** takes the whole window (`body.xp-full`: no tabs, counters or run controls). The
+  program strip is one line of chapter buttons (the machine, each instruction with its bytes, the
+  end); the bar has no chips. The bar title is in normal case ("Instruction 1 of 4: `mov ax,
+  0xB800`", then the milestone and its number). There is no side card for a unit and no
+  second text line: one caption. The spotlight dims the other units of the die while a unit
+  works (`drawSpot`, `spotU`: a second dim layer with a hole at the unit). The names of the units
+  on the die are at most about 26 px on the screen (`sMax` in `drawInterior`: 26 / S for a
+  detail tile). A unit drawing has an opaque base (the name under it does not show through). The
+  opcode drawing has a layout for a tall unit (the bits in rows, the other bytes under them).
+  The timing panel opens over the view (the bar keeps its size). The letter shot at the end shows
+  the top-left quarter of the screen.
+- **The trace outside Explain** uses the same unit drawings: a unit of a die with a card shows
+  its work on the die (scaled with `unitZoom`) and the tag above it; no window over the unit and
+  no side card (a card of text only keeps the side card). While such a unit works and it is at
+  least 110 × 70 px on the screen, the rest of the view goes dim (`drawUnitDim`, on the spotlight
+  canvas; it fades in and out).
+- **The bytes after HLT:** the pipe events of the 486 and the Pentium hold the next instructions
+  that the prefetcher took; after a HLT these are the bytes after it (zero bytes decode as
+  "add [bx+si], al"). `pipeAfterHalt` (theme.js) makes the stages younger than a HLT empty; the
+  board cards (`pipeStages`) and the Die tab use it, and the 486 card says that HLT stops the CPU.
+- Text fixes: the 486 has no "U pipe" text (story.js: a 'pipe' event without a pipe), and the
+  register card of the 386 and later says that it shows the low 16 bits of 32-bit registers.
 
 ## The WebAssembly instruction core (src/core/x86core.c, x86wasm.js)
 

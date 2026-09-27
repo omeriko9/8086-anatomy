@@ -625,7 +625,7 @@ class DieView {
     svgEl('rect', { class: 'dv-frame', x, y, width: w, height: h, rx: 6 }, g);
     this.els.heat[id] = svgEl('rect', { class: 'dv-heat' + (cls === 'l' ? ' dv-h8087' : ''), x, y, width: w, height: h, rx: 6 }, g);
     if (title) this.silk(g, title, x + 9, y + 8, 13, cls === 'l' ? 'dv-silk-l' : 'dv-silk');
-    g.addEventListener('click', e => { e.stopPropagation(); this.select(id, g); });
+    g.addEventListener('click', e => { e.stopPropagation(); this.select(id, g, true); });
     g.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.select(id, g); } else if (e.key === 'Escape') this.select(null); });
     this.els.blocks[id] = g;
     return g;
@@ -1026,7 +1026,8 @@ class DieView {
   mhz() { return ((this.m.clockHz || 4772727) / 1e6).toFixed(2).replace(/0$/, '') + ' MHz'; }
 
   // ---------- selection / tooltip ----------
-  select(id, g) {
+  // zoom: a click on a unit also zooms the view to the unit (its small text is then easy to read)
+  select(id, g, zoom) {
     if (this.sel) this.sel.classList.remove('dv-sel');
     this.sel = null;
     if (!id) { this.tip.classList.remove('dv-on'); return; }
@@ -1039,6 +1040,22 @@ class DieView {
     htmlEl('b', null, this.tip, info[0]);
     this.tip.appendChild(document.createTextNode(info[1]));
     if (this.target3D(id)) htmlEl('i', null, this.tip, this.coarse() ? 'Double-tap to see this part on the 3D board.' : 'Double-click to see this part on the 3D board.');
+    if (zoom && this.zoomToBlock(g)) { this.tip.classList.remove('dv-on'); setTimeout(() => { if (this.sel === g) this.placeTip(g); }, this.reduced ? 0 : 420); return; }
+    this.placeTip(g);
+  }
+  // Zoom the view so that the unit g fills most of it (false: it is already about that size).
+  zoomToBlock(g) {
+    const V = this.vb, B = this.vb0, r = this.svg.getBoundingClientRect(), br = g.getBoundingClientRect();
+    if (!V || !B || !r.width || !r.height || !br.width || !br.height) return false;
+    const sx = V.w / r.width, sy = V.h / r.height;
+    const bw = br.width * sx, bh = br.height * sy, cx = V.x + (br.left + br.width / 2 - r.left) * sx, cy = V.y + (br.top + br.height / 2 - r.top) * sy;
+    // (room above or under the unit for its description)
+    const z = clamp(Math.min(B.w / (bw * 1.35), B.h / (bh * 1.9)), 1, DV_ZMAX);
+    if (Math.abs(Math.log(z / this.zv.z)) < 0.15 && br.left >= r.left && br.right <= r.right && br.top >= r.top && br.bottom <= r.bottom) return false;
+    this.viewTo({ z, cx, cy }, true);
+    return true;
+  }
+  placeTip(g) {
     const hr = this.host.getBoundingClientRect(), br = g.getBoundingClientRect();
     const tw = Math.min(480, hr.width * 0.9);
     this.tip.style.width = tw + 'px';
@@ -4857,7 +4874,7 @@ class Die486View extends Die386View {
     });
     this.lastCst = st ? Object.assign({}, st) : null;
     const pe = s.find(x => x.k === 'pipe');
-    if (pe) { this.mdl.pipe = pe.stage.slice(0, 5); this.anims.pipe = null; }
+    if (pe) { this.mdl.pipe = pipeAfterHalt(pe.stage); this.anims.pipe = null; }   // (no stages after a HLT)
     const ce = s.find(x => x.k === 'cache');
     if (ce) this.mdl.cacheAcc = { phys: ce.phys >>> 0, set: ce.set, way: ce.way, hit: !!ce.hit, fill: !!ce.fill, write: !!ce.write, code: !!ce.code, nc: !!ce.nc };
     const fe = s.find(x => x.k === 'fpu');
@@ -6207,7 +6224,7 @@ class Die586View extends Die486View {
     // the sampled instruction (at the same time as the picture): the pipes, the last branch, the caches
     if (due) for (const x of s) {
       if (x.k === 'pipe') {
-        const st = x.stage || [];
+        const st = pipeAfterHalt(x.stage);   // (no stages after a HLT)
         P.pipe = x.pipe === 'V' ? 'V' : 'U';
         if (P.pipe === 'V') P.pp.cur = { u: x.partner || '', v: st[3] || '', paired: true, why: '', vOn: true, uClk: 0, vClk: x.clocks | 0, uAlu: null, vAlu: null };
         else P.pp.cur = { u: st[3] || '', v: x.paired ? x.partner || '' : '', paired: !!x.paired, why: x.reason || '', vOn: false, uClk: x.clocks | 0, vClk: 0, uAlu: null, vAlu: null };
