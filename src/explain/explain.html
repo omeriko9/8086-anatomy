@@ -1,0 +1,96 @@
+<title>Four Lines, One Letter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=VT323&display=swap">
+<style>
+  /* One dark world (the 8086 Anatomy palette): the bus colors mean the same everywhere. */
+  :root {
+    color-scheme: dark;
+    --void: #120b1a; --panel: #1a1224; --panel2: #221830; --line: #33254a;
+    --text: #ece4f5; --muted: #9d8fb3; --faint: #5d4f73;
+    --addr: #5fd4ff; --data: #d8a94a; --ctrl: #ff5fa2; --phos: #7dff9a; --lav: #b48cff;
+    --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+    --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  html, body { background: var(--void); color: var(--text); }
+  body { margin: 0; font: 16px/1.5 var(--sans); padding-inline: 16px; padding-block: 24px 40px; }
+  .xp { max-width: 1280px; margin: 0 auto; display: grid; gap: 14px; }
+  .xp-eyebrow { font: 600 12px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin: 0; }
+  .xp h1 { font: 600 clamp(22px, 3.2vw, 34px)/1.15 var(--sans); margin: 2px 0 0; text-wrap: balance; }
+  .xp h1 em { font-style: normal; color: var(--phos); }
+  .xp-intro { margin: 0; color: var(--muted); max-width: 70ch; }
+  .xp-stagewrap { position: relative; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--void); }
+  #xp-stage { display: block; width: 100%; aspect-ratio: 1600 / 724; max-width: 100%; }
+  .xp-start { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 10px; text-align: center;
+    background: radial-gradient(closest-side, rgba(18, 11, 26, .72), rgba(18, 11, 26, .35)); }
+  .xp-start button { font: 700 18px var(--mono); letter-spacing: .08em; color: var(--void); background: var(--phos); border: 0; border-radius: 999px;
+    padding: 14px 34px; cursor: pointer; box-shadow: 0 0 32px rgba(125, 255, 154, .45); }
+  .xp-start button:hover { filter: brightness(1.08); }
+  .xp-start p { margin: 0; color: var(--muted); font-size: 14px; }
+  .xp-start[hidden] { display: none; }
+  .xp-panel { display: grid; gap: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; }
+  .xp-caprow { display: grid; gap: 4px; min-height: 5.2em; }
+  .xp-chap { font: 600 12px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--phos); }
+  .xp-cap { margin: 0; font-size: clamp(16px, 1.6vw, 19px); line-height: 1.45; max-width: 90ch; }
+  .xp-cap b { font-weight: 600; color: #fff; }
+  .xp-cap b.a { color: var(--addr); } .xp-cap b.d { color: var(--data); } .xp-cap b.c { color: var(--ctrl); }
+  .xp-cap code { font: 600 .95em var(--mono); color: var(--phos); }
+  .xp-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+  .xp-btn { font: 600 14px var(--mono); color: var(--text); background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; padding: 8px 14px; cursor: pointer; min-width: 44px; }
+  .xp-btn:hover { border-color: var(--muted); }
+  .xp-btn:focus-visible, .xp-chip:focus-visible, .xp-start button:focus-visible { outline: 2px solid var(--phos); outline-offset: 2px; }
+  #xp-play { background: var(--phos); color: var(--void); border-color: var(--phos); min-width: 92px; }
+  .xp-bar { position: relative; flex: 1 1 240px; height: 10px; border-radius: 999px; background: var(--line); cursor: pointer; touch-action: none; }
+  .xp-bar i { position: absolute; top: -3px; width: 2px; height: 16px; background: var(--muted); opacity: .7; }
+  #xp-fill { position: absolute; inset: 0 auto 0 0; width: 0; border-radius: 999px; background: linear-gradient(90deg, var(--addr), var(--phos)); }
+  #xp-time { font: 500 13px var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; min-width: 88px; }
+  .xp-chaps { display: flex; flex-wrap: wrap; gap: 6px; }
+  .xp-chip { font: 500 13px var(--mono); color: var(--muted); background: transparent; border: 1px solid var(--line); border-radius: 999px; padding: 5px 12px; cursor: pointer; }
+  .xp-chip.on { color: var(--void); background: var(--phos); border-color: var(--phos); }
+  .xp-legend { list-style: none; margin: 0; padding: 10px 0 0; border-top: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 8px 22px; font-size: 13px; color: var(--muted); }
+  .xp-legend li { display: flex; align-items: center; gap: 8px; }
+  .xp-legend b { color: var(--text); font-weight: 600; }
+  .sw { display: inline-block; width: 16px; height: 16px; border-radius: 4px; }
+  .sw.glow { border: 2px solid var(--phos); box-shadow: 0 0 8px var(--phos); }
+  .sw.wires { background: repeating-linear-gradient(0deg, var(--addr) 0 2px, transparent 2px 4px); }
+  .sw.tile { background: #6fe3cf; }
+  .sw.roll { border: 1px solid var(--line); background: linear-gradient(var(--muted), var(--phos)); }
+  .xp-foot { margin: 0; font-size: 13px; color: var(--faint); max-width: 90ch; }
+  @media (max-width: 640px) { .xp-panel { padding: 12px; } .xp-caprow { min-height: 7em; } }
+</style>
+<main class="xp">
+  <p class="xp-eyebrow">8086 Anatomy · Explain</p>
+  <h1>Four lines of assembly put <em>one letter</em> on the screen</h1>
+  <p class="xp-intro">Follow an IBM PC-class machine (an 8086 at 4.77 MHz) while it runs a tiny program. One thing lights up at a time. Everything else waits in the dark.</p>
+  <div class="xp-stagewrap">
+    <canvas id="xp-stage" role="img" aria-label="A diagram of the PC: the program, the 8086 CPU with its execution unit and bus interface unit, the address, data and control buses, the RAM, the CGA video card and the screen. The caption under it tells what happens now."></canvas>
+    <div class="xp-start" id="xp-start">
+      <button type="button" id="xp-start-btn">START</button>
+      <p>About two minutes, with sound. Space pauses; the arrow keys jump between chapters.</p>
+    </div>
+  </div>
+  <section class="xp-panel" aria-label="Player">
+    <div class="xp-caprow">
+      <span class="xp-chap" id="xp-chap"></span>
+      <p class="xp-cap" id="xp-cap" aria-live="polite"></p>
+    </div>
+    <div class="xp-controls">
+      <button type="button" class="xp-btn" id="xp-play">Play</button>
+      <button type="button" class="xp-btn" id="xp-restart" aria-label="Start again">↺</button>
+      <div class="xp-bar" id="xp-bar" role="slider" aria-label="Time" tabindex="0"><div id="xp-fill"></div></div>
+      <span id="xp-time">0:00</span>
+      <button type="button" class="xp-btn" id="xp-speed" aria-label="Speed">1×</button>
+      <button type="button" class="xp-btn" id="xp-sound" aria-pressed="true">Sound on</button>
+    </div>
+    <nav class="xp-chaps" id="xp-chaps" aria-label="Chapters"></nav>
+    <ul class="xp-legend">
+      <li><span class="sw glow"></span><b>Glow</b> the part that works now</li>
+      <li><span class="sw wires"></span><b>Wires</b> one bit each: bright 1, dark 0</li>
+      <li><span class="sw tile"></span><b>Tile</b> one byte; its color is its instruction</li>
+      <li><span class="sw roll"></span><b>Rolling digits</b> a register gets a new value</li>
+    </ul>
+  </section>
+  <p class="xp-foot">Every number here comes from the 8086 Anatomy emulator running this program: the bytes, the addresses, the order of the bus cycles and the clock counts. The picture is a simplified diagram of the machine; the timing is slowed down about fifty million times.</p>
+</main>
+<script>/*DATA*/</script>
+<script>/*SCRIPT*/</script>

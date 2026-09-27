@@ -1,0 +1,10 @@
+import puppeteer from 'puppeteer-core';
+import { pathToFileURL } from 'node:url';
+const b = await puppeteer.launch({ executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: 'new' });
+const p = await b.newPage(); await p.setViewport({ width: 1440, height: 900 });
+let errs = 0; p.on('pageerror', e => { errs++; console.log(e.message); });
+await p.goto(pathToFileURL(process.argv[2]).href); await new Promise(r => setTimeout(r, 2000));
+await p.hover('#btn-mon-size'); await new Promise(r => setTimeout(r, 700));
+await p.screenshot({ path: 'tools/tip.png', clip: { x: 900, y: 60, width: 540, height: 160 } });
+console.log('tip:', await p.$eval('.tip', t => t.hidden ? '(hidden)' : t.textContent), 'errors', errs);
+await b.close();

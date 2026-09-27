@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>8086 Anatomy</title>
+<meta name="description" content="Write 8086 assembly and watch a complete maximum-mode 8086 computer run it: CPU die, 8087 coprocessor, 8288 bus controller, latches, memory, timer, interrupt controller and CGA screen, animated bus cycle by bus cycle.">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#120b1a">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='3' y='6' width='26' height='20' rx='3' fill='%233b2350' stroke='%2356346f'/%3E%3Crect x='10' y='11' width='12' height='10' rx='1.5' fill='none' stroke='%23d8a94a' stroke-width='2'/%3E%3Cpath d='M7 6V2M12 6V2M17 6V2M22 6V2M27 6V2M7 30v-4M12 30v-4M17 30v-4M22 30v-4M27 30v-4' stroke='%23d8a94a' stroke-width='2'/%3E%3C/svg%3E">
+<style>/*STYLE*/</style>
+</head>
+<body data-mobile-tab="machine">
+<a class="skip-link" href="#code-input">Skip to the code editor</a>
+
+<header class="topbar">
+  <div class="brand">
+    <button type="button" class="brand-btn" id="brand-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="model-menu" title="Choose the machine: 8086 or 80286">
+      <svg class="brand-mark" id="brand-mark" viewBox="0 0 240 36" role="img" aria-labelledby="brand-title">
+        <title id="brand-title">8086 Anatomy</title>
+      </svg>
+      <svg class="brand-chev" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg>
+    </button>
+    <span class="brand-sub" id="brand-sub">a live 8086 + 8087 computer</span>
+    <div class="model-menu" id="model-menu" role="menu" aria-label="Machine" hidden>
+      <button type="button" role="menuitemradio" class="model-item m-8086" data-model="8086" aria-checked="true">
+        <span class="mi-chip" aria-hidden="true"></span>
+        <span class="mi-text"><b>8086 Anatomy</b><span>Intel 8086 + 8087 · 4.77 MHz · 1 MB · real mode · 1978</span></span>
+      </button>
+      <button type="button" role="menuitemradio" class="model-item m-80286" data-model="80286" aria-checked="false">
+        <span class="mi-chip" aria-hidden="true"></span>
+        <span class="mi-text"><b>80286 Anatomy</b><span>Intel 80286 + 80287 · 8 MHz · 16 MB · protected mode · 1982</span></span>
+      </button>
+      <button type="button" role="menuitemradio" class="model-item m-80386" data-model="80386" aria-checked="false">
+        <span class="mi-chip" aria-hidden="true"></span>
+        <span class="mi-text"><b>80386 Anatomy</b><span>Intel 80386 + 80387 · 25 MHz · 32-bit · paging · virtual 8086 · 1985</span></span>
+      </button>
+      <button type="button" role="menuitemradio" class="model-item m-80486" data-model="80486" aria-checked="false">
+        <span class="mi-chip" aria-hidden="true"></span>
+        <span class="mi-text"><b>80486 Anatomy</b><span>Intel 80486DX · 33 MHz · 8 KB cache · FPU on chip · 5-stage pipeline · 1989</span></span>
+      </button>
+      <button type="button" role="menuitemradio" class="model-item m-80586" data-model="80586" aria-checked="false">
+        <span class="mi-chip" aria-hidden="true"></span>
+        <span class="mi-text"><b>Pentium Anatomy</b><span>Intel Pentium (P5) · 66 MHz · U and V pipes · branch prediction · 8 + 8 KB cache · 64-bit bus · 1993</span></span>
+      </button>
+      <button type="button" role="menuitemradio" class="model-item m-80686" data-model="80686" aria-checked="false">
+        <span class="mi-chip" aria-hidden="true"></span>
+        <span class="mi-text"><b>Pentium Pro Anatomy</b><span>Intel Pentium Pro (P6) · 200 MHz · out-of-order µops · register renaming · 256 KB L2 in the package · 1995</span></span>
+      </button>
+      <p class="mi-group">Graphics card</p>
+      <button type="button" role="menuitemradio" class="model-item v-cga" data-video="cga" aria-checked="true">
+        <span class="mi-card" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+        <span class="mi-text"><b>CGA</b><span>IBM Color Graphics Adapter · 320×200 in 4 colours, 80×25 text · 1981</span></span>
+      </button>
+      <button type="button" role="menuitemradio" class="model-item v-vga" data-video="vga" aria-checked="false">
+        <span class="mi-card" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+        <span class="mi-text"><b>VGA</b><span>Video Graphics Array · 640×480 in 16, 320×200 in 256 colours · 1987</span></span>
+      </button>
+      <p class="mi-note">The page reloads with the new choice. Your program and your disks stay.</p>
+    </div>
+  </div>
+  <dl class="stats" id="stats" aria-label="Machine counters">
+    <div><dt>CS:IP</dt><dd id="st-csip">FFFF:0000</dd></div>
+    <div><dt>clocks</dt><dd id="st-cycles">0</dd></div>
+    <div><dt>instr</dt><dd id="st-instr">0</dd></div>
+    <div><dt>speed</dt><dd id="st-speed">—</dd></div>
+  </dl>
+  <div class="top-actions">
+    <button type="button" class="icon-btn" id="btn-sound" aria-pressed="false" aria-label="Sound off. Turn the speaker sound on">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path class="spk" d="M4 9h4l5-4v14l-5-4H4z"/><path class="wave" d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12"/><path class="mute" d="M16 9l6 6M22 9l-6 6"/></svg>
+    </button>
+    <button type="button" class="icon-btn" id="btn-help" aria-haspopup="dialog" aria-label="Keyboard shortcuts and help">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .8-1 1.5V14M12 17h.01"/></svg>
+    </button>
+  </div>
+</header>
+
+<main class="layout" id="layout">
+  <section class="pane pane-code" id="pane-code" aria-labelledby="code-title">
+    <h2 id="code-title" class="sr-only">Software</h2>
+    <div class="pane-switch" role="tablist" aria-label="Software source">
+      <button type="button" role="tab" id="ptab-code" aria-controls="panel-code" aria-selected="true">Program</button>
+      <button type="button" role="tab" id="ptab-disks" aria-controls="panel-disks" aria-selected="false" tabindex="-1">Disks</button>
+    </div>
+    <div class="panel-code" id="panel-code" role="tabpanel" aria-labelledby="ptab-code">
+    <div class="pane-head">
+      <label class="sr-only" for="sample-select">Sample program</label>
+      <select id="sample-select" class="select"></select>
+      <div class="head-tools">
+        <button type="button" class="tool-btn" id="btn-import" aria-label="Open an .asm file">Open</button>
+        <button type="button" class="tool-btn" id="btn-export" aria-label="Save the program as an .asm file">Save</button>
+        <input type="file" id="file-input" accept=".asm,.s,.txt,text/plain" hidden>
+      </div>
+    </div>
+    <p class="sample-desc" id="sample-desc"></p>
+    <div class="editor" id="editor">
+      <div class="gutter" id="gutter" aria-hidden="true"></div>
+      <div class="code-wrap">
+        <pre class="code-hl" id="code-hl" aria-hidden="true"></pre>
+        <textarea id="code-input" class="code-input" spellcheck="false" autocapitalize="off" autocomplete="off" wrap="off" aria-label="8086 assembly source. Ctrl+Enter assembles and loads the program."></textarea>
+      </div>
+    </div>
+    <div class="asm-bar">
+      <button type="button" class="btn btn-gold" id="btn-assemble">Assemble &amp; load</button>
+      <output id="asm-status" class="asm-status" aria-live="polite">Ready.</output>
+    </div>
+    <ol class="asm-errors" id="asm-errors" aria-label="Assembler errors"></ol>
+    </div>
+    <div class="panel-disks" id="panel-disks" role="tabpanel" aria-labelledby="ptab-disks" hidden>
+      <p class="disk-intro">Boot a real operating system, for example your own MS-DOS 3.3 floppy image, and run programs from drive B: or from the hard disk C:. The images stay in this browser. Nothing is uploaded.</p>
+      <article class="drive" id="drive-0" aria-labelledby="drive-0-title">
+        <div class="drive-face" aria-hidden="true">
+          <svg viewBox="0 0 64 40"><rect x="1" y="1" width="62" height="38" rx="4" class="df-body"/><rect x="10" y="15" width="44" height="5" rx="1.5" class="df-slot"/><rect x="46" y="28" width="10" height="4" rx="1" class="df-btn"/></svg>
+          <span class="drive-led" id="drive-0-led"></span>
+        </div>
+        <div class="drive-info">
+          <h3 id="drive-0-title">Drive A:</h3>
+          <div class="drive-name" id="drive-0-name">empty</div>
+          <div class="drive-meta" id="drive-0-meta">no disk</div>
+        </div>
+        <div class="drive-actions">
+          <button type="button" class="tool-btn" data-act="load" aria-label="Load a disk image into drive A:">Load image</button>
+          <button type="button" class="tool-btn" data-act="add" aria-label="Copy files to the disk in drive A:">Add files</button>
+          <button type="button" class="tool-btn" data-act="new" aria-label="Put a new empty disk in drive A:">New disk</button>
+          <button type="button" class="tool-btn" data-act="newfile" aria-label="Make a new text file on drive A:" title="Make a new text file in this folder">New file</button>
+          <button type="button" class="tool-btn" data-act="save" aria-label="Save the disk image of drive A:">Save</button>
+          <button type="button" class="tool-btn" data-act="eject" aria-label="Eject the disk from drive A:">Eject</button>
+        </div>
+        <div class="drive-path" id="drive-0-path" hidden></div>
+        <ul class="drive-files" id="drive-0-files" aria-label="Files on drive A:"></ul>
+      </article>
+      <article class="drive" id="drive-1" aria-labelledby="drive-1-title">
+        <div class="drive-face" aria-hidden="true">
+          <svg viewBox="0 0 64 40"><rect x="1" y="1" width="62" height="38" rx="4" class="df-body"/><rect x="10" y="15" width="44" height="5" rx="1.5" class="df-slot"/><rect x="46" y="28" width="10" height="4" rx="1" class="df-btn"/></svg>
+          <span class="drive-led" id="drive-1-led"></span>
+        </div>
+        <div class="drive-info">
+          <h3 id="drive-1-title">Drive B:</h3>
+          <div class="drive-name" id="drive-1-name">empty</div>
+          <div class="drive-meta" id="drive-1-meta">no disk</div>
+        </div>
+        <div class="drive-actions">
+          <button type="button" class="tool-btn" data-act="load" aria-label="Load a disk image into drive B:">Load image</button>
+          <button type="button" class="tool-btn" data-act="add" aria-label="Copy files to the disk in drive B:">Add files</button>
+          <button type="button" class="tool-btn" data-act="new" aria-label="Put a new empty disk in drive B:">New disk</button>
+          <button type="button" class="tool-btn" data-act="newfile" aria-label="Make a new text file on drive B:" title="Make a new text file in this folder">New file</button>
+          <button type="button" class="tool-btn" data-act="save" aria-label="Save the disk image of drive B:">Save</button>
+          <button type="button" class="tool-btn" data-act="eject" aria-label="Eject the disk from drive B:">Eject</button>
+        </div>
+        <div class="drive-path" id="drive-1-path" hidden></div>
+        <ul class="drive-files" id="drive-1-files" aria-label="Files on drive B:"></ul>
+      </article>
+      <article class="drive drive-hd" id="drive-2" aria-labelledby="drive-2-title">
+        <div class="drive-face" aria-hidden="true">
+          <svg viewBox="0 0 64 40"><rect x="1" y="1" width="62" height="38" rx="4" class="df-body"/><circle cx="24" cy="20" r="14" class="df-slot"/><circle cx="24" cy="20" r="3.5" class="df-btn"/><rect x="40" y="9" width="18" height="3" rx="1" class="df-btn"/><rect x="40" y="28" width="12" height="3" rx="1" class="df-btn"/></svg>
+          <span class="drive-led" id="drive-2-led"></span>
+        </div>
+        <div class="drive-info">
+          <h3 id="drive-2-title">Drive C: (hard disk)</h3>
+          <div class="drive-name" id="drive-2-name">empty</div>
+          <div class="drive-meta" id="drive-2-meta">no hard disk</div>
+        </div>
+        <div class="drive-actions">
+          <button type="button" class="tool-btn" data-act="hdboot" aria-label="Make a new 20 MB drive C: with the DOS of the disk in drive A:" title="A new 20 MB drive C:, bootable: the DOS system files come from the disk in drive A: (as SYS C: does)">New bootable C:</button>
+          <button type="button" class="tool-btn" data-act="hdnew" aria-label="Make a new empty 20 MB drive C:" title="A new empty 20 MB drive C: (partitioned and formatted)">New empty C:</button>
+          <button type="button" class="tool-btn" data-act="load" aria-label="Load a hard disk image into drive C:">Load image</button>
+          <button type="button" class="tool-btn" data-act="folder" aria-label="Copy a folder with its files and subfolders to drive C:" title="Copy a folder with all its files and subfolders to the folder shown here">Add folder</button>
+          <button type="button" class="tool-btn" data-act="add" aria-label="Copy files to drive C:">Add files</button>
+          <button type="button" class="tool-btn" data-act="newfile" aria-label="Make a new text file on drive C:" title="Make a new text file in this folder">New file</button>
+          <button type="button" class="tool-btn" data-act="save" aria-label="Save the disk image of drive C:">Save</button>
+          <button type="button" class="tool-btn" data-act="eject" aria-label="Remove the hard disk from drive C:">Remove</button>
+        </div>
+        <div class="drive-path" id="drive-2-path" hidden></div>
+        <ul class="drive-files" id="drive-2-files" aria-label="Files on drive C:"></ul>
+      </article>
+      <div class="disk-boot">
+        <button type="button" class="btn btn-gold" id="btn-boot-disk" disabled>Boot from A:</button>
+        <button type="button" class="btn btn-gold" id="btn-boot-hd" disabled>Boot from C:</button>
+        <output class="disk-status" id="disk-status" aria-live="polite"></output>
+      </div>
+      <p class="disk-tips">DOS asks for the date and the time: press <kbd>Enter</kbd> two times. Click the screen first, so that your keys go to the machine. Type <kbd>B:</kbd> and then a program name to run it from drive B:. Drop files on a drive to copy them to its disk; drop a folder on drive C: to copy it with its subfolders (long names become DOS 8.3 names). With no disk in A:, the machine boots from C:. After you change drive C:, boot again, because DOS keeps parts of the disk in memory.</p>
+      <input type="file" id="disk-file" accept=".img,.ima,.dsk,.vfd,.hdd,.bin,application/octet-stream" hidden>
+      <input type="file" id="disk-add" multiple hidden>
+      <input type="file" id="disk-folder" webkitdirectory multiple hidden>
+    </div>
+  </section>
+
+  <section class="pane pane-stage" id="pane-stage" aria-labelledby="stage-title">
+    <h2 id="stage-title" class="sr-only">Machine views</h2>
+    <div class="stage-head">
+    <div class="tabs" role="tablist" aria-label="Machine views">
+      <button type="button" role="tab" class="tab" id="tab-board" aria-controls="view-board" aria-selected="true">Board <small>3D</small></button>
+      <button type="button" role="tab" class="tab" id="tab-top" aria-controls="view-top" aria-selected="false" tabindex="-1">Top <small>2D</small></button>
+      <button type="button" role="tab" class="tab" id="tab-runner" aria-controls="view-runner" aria-selected="false" tabindex="-1">Runner <small>follow a signal</small></button>
+      <button type="button" role="tab" class="tab" id="tab-die" aria-controls="view-die" aria-selected="false" tabindex="-1">Die <small class="die-sub">8086 + 8087</small></button>
+      <button type="button" role="tab" class="tab" id="tab-timing" aria-controls="view-timing" aria-selected="false" tabindex="-1">Bus timing</button>
+      <button type="button" role="tab" class="tab" id="tab-memory" aria-controls="view-memory" aria-selected="false" tabindex="-1">Memory</button>
+      <span class="tab-ink" id="tab-ink" aria-hidden="true"></span>
+    </div>
+    <div class="stage-tools" role="group" aria-label="Layout">
+      <button type="button" class="xp3-go" id="btn-explain" title="A guided story: a short program, one step at a time, on the 3D board">▶ Explain</button>
+      <button type="button" class="st-btn" id="btn-hide-code" aria-pressed="false" aria-label="Hide the program pane" title="Hide the program pane ( [ )">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2.5" y="3.5" width="15" height="13" rx="2"/><path class="fillp" d="M3.5 4.5h4v11h-4z"/><path d="M7.5 3.5v13"/></svg></button>
+      <button type="button" class="st-btn" id="btn-hide-dock" aria-pressed="false" aria-label="Hide the machine state dock" title="Hide the state dock ( ] )">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2.5" y="3.5" width="15" height="13" rx="2"/><path class="fillp" d="M3.5 12.5h13v3h-13z"/><path d="M2.5 12.5h15"/></svg></button>
+      <button type="button" class="st-btn" id="btn-max" aria-pressed="false" aria-label="Expand the machine view to the whole window" title="Expand the view ( F ), Esc to go back">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path class="i-max" d="M3.5 8V3.5H8M12 3.5h4.5V8M16.5 12v4.5H12M8 16.5H3.5V12"/><path class="i-min" d="M8 3.5V8H3.5M16.5 8H12V3.5M12 16.5V12h4.5M3.5 12H8v4.5"/></svg></button>
+      <button type="button" class="st-btn" id="btn-popout" aria-pressed="false" aria-label="Open the machine view in its own window" title="Open the view in its own window" hidden>
+        <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2.5" y="5.5" width="11" height="11" rx="1.5"/><path d="M9.5 2.5h8v8M17.5 2.5 10 10"/></svg></button>
+    </div>
+    </div>
+    <div class="stage" id="stage">
+      <div class="view-host" role="tabpanel" id="view-board" aria-labelledby="tab-board"></div>
+      <div class="view-host" role="tabpanel" id="view-top" aria-labelledby="tab-top" hidden></div>
+      <div class="view-host" role="tabpanel" id="view-runner" aria-labelledby="tab-runner" hidden></div>
+      <div class="view-host" role="tabpanel" id="view-die" aria-labelledby="tab-die" hidden></div>
+      <div class="view-host" role="tabpanel" id="view-timing" aria-labelledby="tab-timing" hidden></div>
+      <div class="view-host" role="tabpanel" id="view-memory" aria-labelledby="tab-memory" hidden></div>
+      <aside class="monitor" id="monitor" aria-labelledby="crt-title">
+        <header class="monitor-head">
+          <h3 id="crt-title">CGA screen <small>B800:0000</small></h3>
+          <span class="card-note" id="crt-note">click, then type</span>
+          <button type="button" class="mon-btn" id="btn-kbd" aria-label="Open a keyboard to type to the machine" title="Keyboard: type to the machine (for phones and tablets)">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="4" width="13" height="8" rx="1.5"/><path d="M4 7h.01M6.5 7h.01M9 7h.01M11.5 7h.01M5 9.5h6"/></svg></button>
+          <button type="button" class="mon-btn" id="btn-mon-detach" aria-pressed="false" aria-label="Detach the screen" title="Detach: move and resize the screen anywhere">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="5.5" width="9" height="9" rx="1.2"/><path d="M7.5 1.5h7v7M14.5 1.5 8.5 7.5"/></svg></button>
+          <button type="button" class="mon-btn" id="btn-mon-window" aria-label="Open the screen in its own window" title="Open the screen in its own window (for a second monitor)" hidden>
+            <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="3" width="13" height="10" rx="1.5"/><path d="M1.5 6h13"/></svg></button>
+          <button type="button" class="mon-btn" id="btn-mon-size" aria-pressed="false" aria-label="Show a large screen" title="Large screen: all 80 × 25 characters">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M9.5 2.5h4v4M6.5 13.5h-4v-4M13.5 2.5 9 7M2.5 13.5 7 9"/></svg></button>
+          <button type="button" class="mon-btn" id="btn-mon-min" aria-expanded="true" aria-controls="crt" aria-label="Hide the screen" title="Hide the screen">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8h9"/></svg></button>
+        </header>
+        <div class="crt" id="crt" tabindex="0" role="img" aria-label="Computer screen, 80 by 25 text. Focus it and type to send keys to the keyboard controller."></div>
+        <span class="monitor-led" aria-hidden="true"></span>
+        <span class="mon-grip" id="mon-grip" aria-hidden="true"></span>
+        <input type="text" id="vkbd" class="vkbd" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Keyboard input for the machine">
+      </aside>
+      <div class="now" id="now" aria-hidden="true">
+        <span class="now-addr" id="now-addr">FFFF:0000</span>
+        <span class="now-text" id="now-text">power on</span>
+        <span class="now-micro" id="now-micro"></span>
+      </div>
+      <aside class="trace" id="trace" aria-labelledby="trace-title" hidden>
+        <header class="trace-head">
+          <h3 class="trace-tag" id="trace-title">Trace</h3>
+          <b class="trace-instr" id="trace-instr">—</b>
+          <span class="trace-lane" id="trace-lane">EU</span>
+          <b class="trace-stitle" id="trace-stitle">Press Next or Run</b>
+          <span class="trace-count" id="trace-count"></span>
+          <button type="button" class="trace-min" id="trace-min" aria-expanded="true" aria-controls="trace-list" aria-label="Hide the step list" title="Show or hide the list of steps">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4"/></svg></button>
+        </header>
+        <div class="trace-now" aria-live="polite">
+          <p class="trace-text" id="trace-text">Each step moves one value from one part of the machine to the next part.</p>
+        </div>
+        <ol class="trace-list" id="trace-list"></ol>
+        <div class="trace-nav">
+          <button type="button" class="trace-btn" id="trace-prev" aria-label="Back one step (key B or comma)">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3.5 5.5 8l4.5 4.5"/></svg><span>Back</span></button>
+          <button type="button" class="trace-btn trace-btn-main" id="trace-next" aria-label="Next step (key N, period or Space)">
+            <span>Next</span><kbd class="trace-key">N</kbd><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5"/></svg></button>
+          <button type="button" class="trace-btn" id="trace-skip" aria-label="Skip: step over this instruction (key S)">
+            <span>Skip</span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 3.5 7.5 8 3 12.5M8.5 3.5 13 8l-4.5 4.5"/></svg></button>
+          <label class="trace-pre" id="trace-rep-l">Repeats
+            <select id="trace-rep">
+              <option value="once">once</option>
+              <option value="all">all</option>
+            </select></label>
+          <label class="trace-pre" id="trace-pre-l">Prefetch
+            <select id="trace-pre">
+              <option value="parallel">in parallel</option>
+              <option value="short">1 step</option>
+              <option value="full">3 steps</option>
+              <option value="hide">hide</option>
+            </select></label>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <section class="pane pane-dock" id="pane-dock" aria-labelledby="dock-title">
+    <h2 id="dock-title" class="sr-only">Machine state</h2>
+    <div class="dock" id="dock">
+      <article class="card card-regs" aria-labelledby="regs-title">
+        <header class="card-head"><h3 id="regs-title"><span class="cpu-name">8086</span> registers</h3>
+          <button type="button" class="chip-btn" id="btn-radix" aria-label="Change the number base of the register display">HEX</button></header>
+        <div class="regs" id="regs"></div>
+        <div class="flags" id="flags" role="group" aria-label="Flags"></div>
+      </article>
+      <article class="card card-sys" id="card-sys" aria-labelledby="sys-title" hidden>
+        <header class="card-head"><h3 id="sys-title">80286 system</h3><span class="card-note" id="sys-mode">real mode</span></header>
+        <dl class="sys-regs" id="sys-regs"></dl>
+        <table class="seg-cache" id="seg-cache" aria-label="Segment descriptor caches">
+          <thead><tr><th scope="col">seg</th><th scope="col">sel</th><th scope="col">base</th><th scope="col">limit</th><th scope="col">acc</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </article>
+      <article class="card card-fpu" aria-labelledby="fpu-title">
+        <header class="card-head"><h3 id="fpu-title"><span class="fpu-name">8087</span> stack</h3><span class="card-note" id="fpu-sw">SW 0000</span></header>
+        <ol class="fpu-stack" id="fpu-stack" start="0"></ol>
+      </article>
+      <article class="card card-stack" aria-labelledby="stack-title">
+        <header class="card-head"><h3 id="stack-title">Stack <small>SS:SP</small></h3></header>
+        <ol class="stack-list" id="stack-list"></ol>
+      </article>
+      <article class="card card-io" aria-labelledby="io-title">
+        <header class="card-head"><h3 id="io-title">I/O ports</h3></header>
+        <ol class="io-log" id="io-log"></ol>
+      </article>
+    </div>
+  </section>
+</main>
+
+<footer class="transport" aria-label="Run controls">
+  <div class="tgroup">
+    <button type="button" class="tbtn" id="btn-reset" aria-label="Reset the machine (power on)" title="Reset (Ctrl+R)">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.4-5.7M4 4v4h4"/></svg><span>Reset</span></button>
+    <button type="button" class="tbtn tbtn-main" id="btn-run" aria-label="Run" title="Run / pause (F5)">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path class="i-play" d="M7 5l12 7-12 7z"/><path class="i-pause" d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg><span id="run-label">Run</span></button>
+    <button type="button" class="tbtn" id="btn-step" aria-label="Step one instruction" title="Step instruction (F8)">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5l9 7-9 7zM17 5h2.5v14H17z"/></svg><span>Instr</span></button>
+    <button type="button" class="tbtn" id="btn-clock" aria-label="Step one clock cycle" title="Step one T-state (Shift+F8)">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 16h4V8h5v8h5V8h4"/></svg><span>Clock</span></button>
+  </div>
+  <div class="speed">
+    <label for="speed" class="speed-label">Speed</label>
+    <input type="range" id="speed" min="0" max="90" step="1" value="30" aria-valuetext="2 instructions per second" title="Speed: the slider stops at the known speeds; between them it moves in fine steps. Arrow keys: a fine step. Page Up / Page Down: the next known speed.">
+    <output id="speed-out" for="speed" class="speed-out">2 instr/s</output>
+  </div>
+  <div class="speed speed-motion" title="Slow motion for the animations. The CPU speed does not change.">
+    <label for="motion" class="speed-label">Motion</label>
+    <input type="range" id="motion" min="0" max="6" step="1" value="6" aria-valuetext="animation at 1× speed">
+    <output id="motion-out" for="motion" class="speed-out">1×</output>
+  </div>
+  <div class="tgroup tgroup-right">
+    <label class="toggle" id="tg-trace"><input type="checkbox" id="opt-trace" checked><span>Trace</span></label>
+    <label class="toggle" id="tg-decap"><input type="checkbox" id="opt-decap"><span>Decap</span></label>
+    <label class="toggle" id="tg-sfx"><input type="checkbox" id="opt-sfx" checked><span>Effects</span></label>
+    <label class="toggle"><input type="checkbox" id="opt-boot"><span>Watch BIOS boot</span></label>
+    <label class="toggle"><input type="checkbox" id="opt-follow" checked><span>Follow action</span></label>
+  </div>
+</footer>
+
+<nav class="mobile-nav" aria-label="Sections">
+  <button type="button" data-tab="code" aria-pressed="false">Code</button>
+  <button type="button" data-tab="machine" aria-pressed="true">Machine</button>
+  <button type="button" data-tab="state" aria-pressed="false">State</button>
+</nav>
+
+<div id="live" class="sr-only" aria-live="polite"></div>
+
+<dialog class="fedit" id="fedit" aria-labelledby="fedit-title">
+  <div class="fedit-head">
+    <h2 id="fedit-title">Edit file</h2>
+    <span class="fedit-where" id="fedit-where">A:\</span>
+  </div>
+  <label class="fedit-name" for="fedit-name">Name <input type="text" id="fedit-name" maxlength="12" spellcheck="false" autocomplete="off" autocapitalize="characters"></label>
+  <textarea id="fedit-text" class="fedit-text" spellcheck="false" wrap="off" aria-label="File contents"></textarea>
+  <pre class="fedit-hex" id="fedit-hex" tabindex="0" aria-label="File contents in hexadecimal" hidden></pre>
+  <p class="fedit-note" id="fedit-note" aria-live="polite"></p>
+  <div class="fedit-actions">
+    <button type="button" class="tool-btn fedit-del" id="fedit-delete">Delete file</button>
+    <span class="fedit-gap"></span>
+    <button type="button" class="tool-btn" id="fedit-cancel">Cancel</button>
+    <button type="button" class="btn" id="fedit-save">Save to disk</button>
+    <button type="button" class="btn btn-gold" id="fedit-reboot" title="Save the file, then boot drive A: again">Save &amp; reboot</button>
+  </div>
+</dialog>
+
+<dialog class="help" id="help" aria-labelledby="help-title">
+  <h2 id="help-title">How to drive the machine</h2>
+  <dl class="keys">
+    <div><dt><kbd>F5</kbd></dt><dd>Run or pause</dd></div>
+    <div><dt><kbd>F8</kbd></dt><dd>Step one instruction</dd></div>
+    <div><dt><kbd>Shift</kbd>+<kbd>F8</kbd></dt><dd>Step one clock (T-state)</dd></div>
+    <div><dt><kbd>N</kbd> or <kbd>.</kbd> or <kbd>Space</kbd></dt><dd>Trace: next step (outside the editor)</dd></div>
+    <div><dt><kbd>B</kbd> or <kbd>,</kbd></dt><dd>Trace: back one step</dd></div>
+    <div><dt><kbd>S</kbd></dt><dd>Trace: skip (step over a CALL, an INT or a loop)</dd></div>
+    <div><dt><kbd>F9</kbd></dt><dd>Toggle a breakpoint on the cursor line</dd></div>
+    <div><dt><kbd>Ctrl</kbd>+<kbd>Enter</kbd></dt><dd>Assemble and load</dd></div>
+    <div><dt><kbd>Ctrl</kbd>+<kbd>R</kbd></dt><dd>Reset</dd></div>
+    <div><dt><kbd>1</kbd>–<kbd>6</kbd></dt><dd>Board 3D, Top 2D, Runner, Die, Bus timing, Memory (outside the editor)</dd></div>
+    <div><dt><kbd>[</kbd> / <kbd>]</kbd></dt><dd>Hide or show the program pane / the state dock</dd></div>
+    <div><dt><kbd>F</kbd>, <kbd>Esc</kbd></dt><dd>Expand the machine view to the whole window, and back</dd></div>
+    <div><dt>Top 2D</dt><dd>All the chips from above, always open. Drag: move. Wheel or +/−: zoom. Double-click a chip: fill the view. Esc: see all. Follow: the view goes to the chips that work.</dd></div>
+    <div><dt>Board 3D mouse</dt><dd>Drag: move the view. Right-drag or Shift+drag: turn it. Wheel: zoom to the pointer. Double-click a chip: focus on it (nothing hides it); Esc leaves the focus.</dd></div>
+  </dl>
+  <p>Click a line number to set a breakpoint. Click the screen and type to send scan codes through the 8255 to the CPU (IRQ1). When the screen has the focus, all keys go to the machine; use the buttons to pause.</p>
+  <p>To run an operating system, open <b>Disks</b>, load a bootable floppy image (for example your own MS-DOS 3.3 disk) into drive A:, put programs on drive B: with <b>Add files</b>, and press <b>Boot from A:</b>. The machine then runs at 4.77 MHz, and you can change the speed at any time to watch the bus traffic.</p>
+  <p>Two machines: select the title (8086 ANATOMY / 80286 ANATOMY) to switch. The 80286 machine is an AT-class board at 8 MHz with an 80287, 16 MB of address space, the A20 gate, a CMOS clock and protected mode. Its samples show the new instructions, the A20 gate and a tour of protected mode.</p>
+  <p class="fine">This is an original educational simulation. The board layout is inspired by the IBM PC 5150, with an 8086 in place of the 8088 and an 8087 in the coprocessor socket. The BIOS is original code; INT 21h is a tiny DOS-like subset for convenience. Instruction results were checked against 640,744 real 8086 hardware test cases.</p>
+  <form method="dialog"><button type="submit" class="btn btn-gold">Close</button></form>
+</dialog>
+
+<script>/*SCRIPT*/</script>
+</body>
+</html>

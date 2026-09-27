@@ -1,0 +1,25 @@
+# The disk images and the game audio of the user. Never put them in git.
+tools/tmp/
+*.img
+*.ima
+*.wav
+
+# Test suites that the tools download, and npm packages
+tools/sst*/
+node_modules/
+
+# Screenshots and pages that the tools make
+tools/**/*.png
+tools/**/*.html
+tools/tv/
+tools/unitfx/
+tools/out/
+
+# Third-party binaries (NASM)
+tools/nasm/
+
+# Build output. The snapshots/ folder keeps the published versions.
+dist/
+
+# Local session files
+.claude/

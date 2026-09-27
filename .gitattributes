@@ -1,0 +1,2 @@
+# Keep each file byte for byte (some files use CRLF, some use LF).
+* -text
