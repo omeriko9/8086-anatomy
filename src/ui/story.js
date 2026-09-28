@@ -314,49 +314,73 @@ const Story = (() => {
   }
   // opt: { prefetch: 'parallel' | 'full' | 'short' | 'hide' }. 'parallel': a prefetch is not a
   // step of its own; it plays at the same time as an EU step (s.bg), as on the real CPU.
+  // The later transfers of a burst line fill (opt.burst = 'fold', the page): one step for all of
+  // them, after the first transfer with its three steps. Nine near-identical steps become one.
+  function burstStep(list, opt) {
+    const first = list[0], last = list[list.length - 1], I = busInfo(last), n = list.length, w = I.width || 1;
+    const code = I.kind === 'fetch', who = I.fpu ? N.fpu : N.cpu, name = devName(I);
+    const lo = Math.min(...list.map(x => x.addr >>> 0)), hi = Math.max(...list.map(x => (x.addr >>> 0) + (x.width || 1) - 1));
+    const L = M486 ? 16 : 32, line = first.line !== undefined ? first.line >>> 0 : lo;
+    const t = (last.t || 0) + Math.max(2, (last.len || 4) - 2);
+    const step = { kind: 'bus', e: last, I, lane: code ? 'BIU' : 'EU', dev: I.dev, phase: 'all', t, title: `${n} more transfers`,
+      token: { tag: code ? 'CODE' : 'DATA', val: `${n} × ${w} bytes`, col: 'data' }, fromName: name, toName: code ? `${who} queue` : who, burst: list.slice(),
+      text: `${n} more transfer${n > 1 ? 's' : ''} of the burst bring the rest of the ${L}-byte line from the ${name}: ${hA(lo)} to ${hA(hi)}, ${w} bytes each. ` +
+        `The cache keeps the whole line, so the next ${code ? 'code bytes' : 'reads'} from it need no bus cycle.`,
+      sum: `${n} more transfers → the line ${hA(line)}` };
+    if (opt.prefetch === 'parallel' && code) step.bgStep = true;
+    return step;
+  }
   function build(events, opt = {}) {
-    opt = { prefetch: 'parallel', ...opt };
+    opt = { prefetch: 'parallel', burst: 'all', ...opt };
     const parallel = opt.prefetch === 'parallel';
     if (parallel) opt = { ...opt, prefetch: 'short' };
+    const fold = opt.burst === 'fold';
     const evs = events.map((e, i) => ({ e, i })).sort((a, b) => ((a.e.t || 0) - (b.e.t || 0)) || a.i - b.i).map(x => x.e);
     const dec = evs.find(e => e.k === 'decode');
     const flushed = evs.some(e => e.k === 'queue' && e.op === 'flush') || evs.some(e => e.k === 'int');
     const steps = [];
-    let group = [];
+    let group = [], burst = [];
     const close = () => { if (group.length) { const s = insideStep(group, dec, flushed); if (s) steps.push(s); group = []; } };
+    // (the folded step goes before the steps inside the CPU that came during the burst)
+    const flush = () => { if (burst.length) { steps.push(burstStep(burst, { prefetch: parallel ? 'parallel' : opt.prefetch })); burst = []; } };
     for (const e of evs) {
       if (e.k === 'fetch' || e.k === 'bus') {
         if (e.k === 'fetch' && opt.prefetch === 'hide') continue;
+        // a later read transfer of the same burst: it joins the folded step
+        if (fold && e.burst && e.beat > 0 && !e.wb && burst.length && burst[0].line === e.line && burst[0].k === e.k) { burst.push(e); continue; }
+        flush();
+        if (fold && e.burst && e.beat > 0 && !e.wb) { burst.push(e); continue; }
         close();
         const bs = busSteps(e, opt, e.q ? e.q.length : 0);
         if (parallel && e.k === 'fetch') for (const x of bs) x.bgStep = true;
         steps.push(...bs);
       } else if (e.k === 'int' && e.src === 'irq') {
-        close();
+        flush(); close();
         steps.push({ kind: 'irq', lane: 'IRQ', t: e.t || 0, e, title: 'Interrupt request', token: { tag: 'INTR', val: h(e.vec, 2) + 'h', col: 'ctrl' }, fromName: '8259A', toName: N.cpu,
           text: `A device asks for an interrupt. The 8259A sends INTR to the ${N.cpu}. The ${N.cpu} ends the current instruction and answers with INTA cycles.`,
           sum: `INTR → ${N.cpu}` });
         group.push(e);
       } else if (e.k === 'fdc') {
-        close();
+        flush(); close();
         steps.push(fdcStep(e));
       } else if (e.k === 'dma') {
-        close();
+        flush(); close();
         steps.push(dmaStep(e));
       } else if (e.k === 'page') {
-        close();
+        flush(); close();
         steps.push(pageStep(e));
       } else if (e.k === 'cache' && (!e.hit || e.level === 'L2')) {   // (a P6 L2 hit follows an L1 miss)
-        close();
+        flush(); close();
         steps.push(cacheStep(e));
       } else if (e.k === 'btb' && !e.right) {
-        close();
+        flush(); close();
         steps.push(btbStep(e));
       } else if (e.k === 'sb' || e.k === 'opl') {
-        close();
+        flush(); close();
         steps.push(soundStep(e));
       } else if (e.k !== 'end' && e.k !== 'iq') group.push(e);
     }
+    flush();
     close();
     // The decode step comes first, also when the first bus cycle starts at the same clock.
     const d = steps.findIndex(s => s.kind === 'inside' && s.title === 'Decode');

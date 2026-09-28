@@ -230,6 +230,7 @@
     </div>
     <div class="stage-tools" role="group" aria-label="Layout">
       <button type="button" class="xp3-go" id="btn-explain" title="A guided story: a short program, one step at a time, on the 3D board">▶ Explain</button>
+      <button type="button" class="st-btn st-text" id="btn-simple" aria-pressed="true" title="Simple view: only the main controls and cards. Click for the full view.">Simple</button>
       <button type="button" class="st-btn" id="btn-hide-code" aria-pressed="false" aria-label="Hide the program pane" title="Hide the program pane ( [ )">
         <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2.5" y="3.5" width="15" height="13" rx="2"/><path class="fillp" d="M3.5 4.5h4v11h-4z"/><path d="M7.5 3.5v13"/></svg></button>
       <button type="button" class="st-btn" id="btn-hide-dock" aria-pressed="false" aria-label="Hide the machine state dock" title="Hide the state dock ( ] )">
@@ -304,9 +305,15 @@
             <option value="full">3 steps</option>
             <option value="hide">hide</option>
           </select></label>
+        <label class="trace-pre" id="trace-burst-l">Line fills
+          <select id="trace-burst">
+            <option value="fold">folded</option>
+            <option value="all">every transfer</option>
+          </select></label>
       </div>
       <div class="trace-now" aria-live="polite">
         <p class="trace-text" id="trace-text">Each step moves one value from one part of the machine to the next part.</p>
+        <p class="trace-more" id="trace-more" hidden></p>
       </div>
       <ol class="trace-list" id="trace-list"></ol>
       <div class="trace-nav">
@@ -392,7 +399,8 @@
     <div><dt>Top mouse</dt><dd>Drag: move. Wheel or +/−: zoom. Double-click a chip: fill the view. Esc: see all.</dd></div>
   </dl>
   <h3>The trace</h3>
-  <p>With <b>Trace</b> on (in the top bar), each instruction plays as steps. The text under the view tells each step; <b>Back</b>, <b>Next</b> and <b>Skip</b> are at its right. The list button shows all the steps of the instruction, and the options button sets how the trace shows loops and code fetches.</p>
+  <p>With <b>Trace</b> on (in the top bar), each instruction plays as steps. The text under the view tells each step: the first line says what happens, the small text under it gives the details. <b>Next</b> gives you one step at a time; <b>Run</b> plays the steps by itself and keeps each one on the screen long enough to read it (the <b>Speed</b> slider scales that time). <b>Back</b> and <b>Skip</b> are next to Next. The list button shows all the steps of the instruction, and the options button sets how the trace shows loops, code fetches and cache line fills.</p>
+  <p>The <b>Simple</b> button (above the view) keeps only the main controls and cards; <b>Full</b> also shows the clock step, the I/O log and the settings of the Runner.</p>
   <h3>Keys</h3>
   <dl class="keys">
     <div><dt><kbd>F5</kbd></dt><dd>Run or pause</dd></div>

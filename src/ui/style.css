@@ -556,6 +556,16 @@ body.switching { transition: opacity .35s; opacity: 0; }
 .st-btn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 .st-btn .fillp { fill: currentColor; stroke: none; opacity: .35; }
 .st-btn .i-min { display: none; }
+.st-btn.st-text { width: auto; padding: 0 10px; font: 600 12px var(--sans); }
+/* The simple view (body.view-simple, the default): the clock step, the I/O log and the Runner
+   settings are away; the dock has one column less. Full shows them all. */
+body.view-simple #btn-clock, body.view-simple .card-io, body.view-simple #view-runner .bv-presets { display: none !important; }
+/* (under 1180 px the page hides the I/O log anyway, so the dock rules below need no change there) */
+@media (min-width: 1181px) {
+  body.view-simple .dock { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1.1fr) minmax(0, .7fr); }
+  :root.m286 body.view-simple .dock { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1.35fr) minmax(0, 1fr) minmax(0, .6fr); }
+  :root.m386 body.view-simple .dock { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.55fr) minmax(0, 1fr) minmax(0, .72fr); }
+}
 body.stage-max #btn-max .i-min { display: inline; }
 body.stage-max #btn-max .i-max { display: none; }
 
@@ -656,13 +666,16 @@ body.pip #btn-hide-code, body.pip #btn-hide-dock, body.pip #btn-max { display: n
 .trace-min:hover { color: var(--text); border-color: var(--faint); }
 .trace-min svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; transition: transform .25s var(--ease); }
 .trace-folded .trace-min svg { transform: rotate(180deg); }
-.trace-now { grid-area: now; display: grid; gap: 3px; min-width: 0; height: calc(15px * 1.45 * 3); overflow-y: auto; scrollbar-width: thin; align-content: start; }
+.trace-now { grid-area: now; display: grid; gap: 3px; min-width: 0; height: calc(15px * 1.45 * 2 + 12.5px * 1.4 * 2 + 3px); overflow-y: auto; scrollbar-width: thin; align-content: start; }
 .trace-step { margin: 0; display: none; }
 .trace-lane {
   flex: none; font: 700 10.5px var(--mono); letter-spacing: .06em; padding: 2px 6px; border-radius: 4px;
   color: var(--cyan); border: 1px solid currentColor;
 }
 .trace-text { margin: 0; font-size: 15px; line-height: 1.45; color: var(--text); text-wrap: pretty; }
+/* the details of the step, under the first sentence */
+.trace-more { margin: 0; font-size: 12.5px; line-height: 1.4; color: var(--muted); text-wrap: pretty; }
+.trace-more[hidden] { display: none; }
 .trace-list {
   position: absolute; left: 0; right: 0; bottom: calc(100% + 6px); z-index: 7; list-style: none; margin: 0; padding: 8px;
   background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 18px 40px -18px rgba(0, 0, 0, .85);

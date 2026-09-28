@@ -343,3 +343,12 @@ const AnimClock = {
   setScale(s) { this.base = this.now(); this.realBase = performance.now(); this.scale = s; },
 };
 function animNow() { return AnimClock.now(); }
+
+// A caption in two layers: the first sentence (what happens) and the rest (the details).
+// A short first sentence stays with its details.
+function splitLead(text) {
+  const t = String(text || '');
+  const m = /[.!?]["”)]?\s+(?=[A-Z0-9"“(]|<b>[A-Z0-9])/.exec(t);   // (also a caption with <b> tags)
+  if (!m || m.index < 24) return [t, ''];
+  return [t.slice(0, m.index + m[0].trimEnd().length), t.slice(m.index + m[0].length)];
+}

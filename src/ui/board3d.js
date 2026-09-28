@@ -5962,9 +5962,9 @@ const { BoardView, RunnerView, BoardKit } = (() => {
           if (tpos) v.labels.push({ at: tpos, text: `${name} · keeps ${val}`, cls: 'tl-data' });
         }
       } else {
-        // a short prefetch: the address goes out, the code comes back
+        // a short prefetch (or the folded rest of a burst): the address goes out, the bytes come back
         v.legs.push(addrLeg());
-        v.legs.push(dataRead({ tag: 'CODE', val, col: 'data' }));
+        v.legs.push(dataRead({ tag: I.kind === 'fetch' ? 'CODE' : 'DATA', val, col: 'data' }));
         v.extra.push(cmdPts());
         if (tg.cs && this.routes[tg.cs]) v.extra.push(route(tg.cs));
         if (other) v.extra.push(Dchain(true, other));

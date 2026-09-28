@@ -64,6 +64,8 @@ class App {
     this.mode = this.spd.mode;
     this.program = null;
     this.tracePre = ['parallel', 'short', 'full', 'hide'].includes(storage.get('tracePre', 'parallel')) ? storage.get('tracePre', 'parallel') : 'parallel';
+    // Line fills: 'fold' = the later transfers of a burst are one step (Explain folds them itself)
+    this.traceBurst = storage.get('traceBurst', 'fold') === 'all' ? 'all' : 'fold';
     // Repeats: 'once' = code that the trace showed a short time ago runs fast (loops, REP)
     this.traceRep = storage.get('traceRep', 'once') === 'all' ? 'all' : 'once';
     this.seen = new Map(); this.traceCount = 0;
@@ -384,7 +386,14 @@ class App {
   // ---------- trace mode ----------
   // Each instruction plays as a list of steps (Story.build). One step moves one value
   // from one part of the machine to the next part. Next and Back move by one step.
-  buildStory(events, opt) { return Story.build(events, opt || { prefetch: this.tracePre }); }
+  buildStory(events, opt) { return Story.build(events, opt || { prefetch: this.tracePre, burst: this.explain && this.explain.on ? 'all' : this.traceBurst }); }
+  // The time to read the caption of a step (the lead sentence, and the details at half weight),
+  // at the speed of the slider (1 at "normal"). The trace holds a step at least this long when
+  // it plays by itself, so a person can read it; the animation keeps its own speed.
+  readMs(s) {
+    const [lead, rest] = typeof splitLead === 'function' ? splitLead(s.text) : [String(s.text || ''), ''];
+    return (900 + lead.length * 50 + rest.length * 22) * clamp(this.stepMs / TRACE_MS[3], 0.12, 4);
+  }
   traceActive() { return this.traceOn && this.mode === 'explain' && typeof Story !== 'undefined'; }
   get stepMs() { return this.spd.stepMs || TRACE_MS[clamp(this.speedIdx, 0, TRACE_MS.length - 1)]; }
   traceUi() {
@@ -406,6 +415,15 @@ class App {
       // the new setting starts with the next instruction
       this.announce('The prefetch setting changes from the next instruction.');
     });
+    const bu = $('trace-burst');
+    if (bu) {
+      bu.value = this.traceBurst;
+      bu.addEventListener('change', () => {
+        this.traceBurst = bu.value === 'all' ? 'all' : 'fold';
+        storage.set('traceBurst', this.traceBurst);
+        this.announce('The line fill setting changes from the next instruction.');
+      });
+    }
     const ob = $('trace-opt'), op = $('trace-opts');
     const setOpt = on => { op.hidden = !on; ob.setAttribute('aria-expanded', on ? 'true' : 'false'); };
     ob.addEventListener('click', () => setOpt(op.hidden));
@@ -439,6 +457,7 @@ class App {
     tip('trace-skip', 'Skip: step over this instruction. A CALL, an INT or a loop runs fast, and the trace continues at the next instruction. Key: S.', 'Skip');
     tip('trace-rep-l', 'Repeats. Once: code that the trace showed a short time ago runs fast (the next pass of a loop, the next REP iteration). All: the trace shows every pass.', 'Repeats');
     tip('trace-pre-l', 'How to show the code fetches of the BIU: as 1 step, as 3 steps (address, command, data), or not at all.', 'Prefetch');
+    tip('trace-burst-l', 'A cache line fill is a burst of transfers on the bus. Folded: the first transfer has its three steps, and the other transfers are one step. Every transfer: three steps for each one.', 'Line fills');
     tip('tg-trace', 'Trace: play each instruction as steps that you can follow one at a time. The speed slider sets the time of a step.', 'Trace');
     tip('btn-opts', 'More run options: follow the action, and watch the BIOS boot.', 'More options');
     tip('tg-sfx', 'Effects: small ticks and clicks when a signal arrives or a step starts. They start after your first click on the page.', 'Sound effects');
@@ -573,7 +592,14 @@ class App {
     this.ffNote = '';
     this.announce(msg);
     this.renderTrace(null);
-    this.el('trace-text').textContent = msg;
+    this.setTraceText(msg);
+  }
+  // The caption of the trace bar: the first sentence, and the details under it.
+  setTraceText(text) {
+    const [lead, rest] = typeof splitLead === 'function' ? splitLead(text) : [text, ''];
+    this.el('trace-text').textContent = lead;
+    const more = this.el('trace-more');
+    if (more) { more.textContent = rest; more.hidden = !rest; }
   }
   ffStop(msg) {
     if (!this.ff) return;
@@ -590,8 +616,8 @@ class App {
     $('trace-lane').textContent = 'FAST';
     $('trace-lane').className = 'trace-lane tl-ctrl';
     $('trace-count').textContent = '';
-    $('trace-text').textContent = (f.why === 'loop' ? 'The trace showed this code a short time ago. It runs without trace until the CPU gets to new code: ' : 'The CPU runs without trace to the next instruction: ') +
-      `${f.n.toLocaleString('en-US')} instructions. Push Next to stop and trace here.`;
+    this.setTraceText((f.why === 'loop' ? 'The trace showed this code a short time ago. It runs without trace until the CPU gets to new code: ' : 'The CPU runs without trace to the next instruction: ') +
+      `${f.n.toLocaleString('en-US')} instructions. Push Next to stop and trace here.`);
     this.el('now-micro').textContent = `fast: ${f.n.toLocaleString('en-US')} instructions`;
   }
   tracePrev() {
@@ -615,10 +641,13 @@ class App {
     p.stepT = animNow();
     const s = p.story.steps[i];
     if (!back) this.dispatchUntil(s.t);
-    // the board sets the time of a step from the length of its path (a steady speed)
+    // the board sets the time of a step from the length of its path (a steady speed); when the
+    // trace plays by itself the step then waits until the caption is read (readMs)
     const av = this.activeView, b = av && av.traceDur ? av : this.views.board;
-    p.stepDur = b && b.traceDur ? b.traceDur(s, this.stepMs) : this.stepMs;
-    const info = { ms: p.stepDur, back: !!back, auto: this.running || p.auto };
+    const auto = this.running || !!p.auto;
+    p.animMs = b && b.traceDur ? b.traceDur(s, this.stepMs) : this.stepMs;
+    p.stepDur = auto ? Math.max(p.animMs, this.readMs(s)) : p.animMs;
+    const info = { ms: p.animMs, back: !!back, auto };
     this.eachView(v => { if (v.traceStep) v.traceStep(p.story, i, info); });
     if (typeof Sfx !== 'undefined') Sfx.step();
     this.renderTrace(p);
@@ -633,7 +662,7 @@ class App {
       if (!p) { $('trace-instr').textContent = '—'; list.textContent = ''; this.traceList = null; }
       $('trace-lane').textContent = 'EU';
       $('trace-stitle').textContent = this.running ? 'Running' : 'Press Next or Run';
-      $('trace-text').textContent = 'Each step moves one value from one part of the machine to the next part.';
+      this.setTraceText('Each step moves one value from one part of the machine to the next part. Run plays the steps at a reading pace; Next gives you one at a time.');
       $('trace-prev').disabled = true;
       return;
     }
@@ -666,7 +695,7 @@ class App {
     $('trace-stitle').textContent = s.title;
     // after a fast run, the first step tells what ran fast
     if (this.ffNote && this.ffNoteFor !== st) { this.ffNoteFor = st; this.ffNoteText = this.ffNote; this.ffNote = ''; }
-    $('trace-text').textContent = (this.ffNoteFor === st && p.si === 0 && this.ffNoteText ? this.ffNoteText + ' ' : '') + s.text;
+    this.setTraceText((this.ffNoteFor === st && p.si === 0 && this.ffNoteText ? this.ffNoteText + ' ' : '') + s.text);
   }
 
   // The CGA monitor floats on the stage; on narrow screens it moves into the dock.
@@ -704,6 +733,22 @@ class App {
     $('btn-max').addEventListener('click', () => this.toggleMax());
     this.toggleCode(storage.get('codeHidden', false));
     this.toggleDock(storage.get('dockHidden', false));
+    // The simple view (the default): the controls and the cards that a first look does not need
+    // are away (the clock step, the I/O log, the Runner settings). Full shows them all.
+    const sb = $('btn-simple');
+    this.toggleSimple = on => {
+      on = on === undefined ? !document.body.classList.contains('view-simple') : on;
+      document.body.classList.toggle('view-simple', on);
+      storage.set('simple', on);
+      if (sb) {
+        sb.setAttribute('aria-pressed', on ? 'true' : 'false');
+        sb.textContent = on ? 'Simple' : 'Full';
+        if (typeof setTip === 'function') setTip(sb, on ? 'Simple view: only the main controls and cards. Click for the full view (the clock step, the I/O log, the Runner settings).' : 'Full view: all the controls and cards. Click for the simple view.', on ? 'Simple view (click for the full view)' : 'Full view (click for the simple view)');
+      }
+      this.relayout();
+    };
+    if (sb) sb.addEventListener('click', () => this.toggleSimple());
+    this.toggleSimple(storage.get('simple', true) !== false);
     const pop = $('btn-popout');
     if (window.documentPictureInPicture) {
       pop.hidden = false;

@@ -2845,6 +2845,47 @@ floating panels covered it, and that many controls had copies. The changes:
 - Text fixes: the 486 has no "U pipe" text (story.js: a 'pipe' event without a pipe), and the
   register card of the 386 and later says that it shows the low 16 bits of 32-bit registers.
 
+## The learner-first pass (v52)
+
+A review of v51 from the side of a person who wants to learn how the machine works (not of the
+page as a tool) found that outside Explain the page ran at the pace of an expert: with Run, a
+trace step lasted about 1.1 s while its caption had 170 characters (median; up to 485), a cache
+line fill on the Pentium was 12 near-identical bus steps, every caption had the same weight, and
+the first screen had every control. The changes:
+
+- **The trace plays at a reading pace.** `App.readMs(step)` is the time to read the caption
+  (900 ms + 50 ms for each character of the first sentence + 22 ms for each of the rest, scaled
+  by the speed slider: 1× at "normal"). When the trace plays by itself (Run, or the auto step
+  after Skip) `enterStep` holds the step for `max(animation, readMs)`; the animation keeps its
+  own time (`play.animMs`, the `ms` that the views get), so the token does not slow down: the
+  step waits after it. Next is not held. Explain has its own reading time and is unchanged.
+- **Line fills fold** (story.js `burstStep`, `Story.build` option `burst: 'fold'`): the later
+  read transfers of a burst (`e.burst`, `beat > 0`, not a write-back) become one 'bus' step of
+  phase 'all' (the views draw it as a short prefetch: the address out, the bytes back) with the
+  text "3 more transfers of the burst bring the rest of the 32-byte line ...". The first
+  transfer keeps its three steps. The step goes before the steps inside the CPU that came
+  during the burst. The default of `Story.build` is `'all'` (the tests see every transfer); the
+  page passes `traceBurst` (storage 'traceBurst', default 'fold', the "Line fills" option of the
+  trace bar) and `'all'` while Explain runs, because the Explain plan folds the transfers itself.
+- **Captions in two layers** (`splitLead` in theme.js: the first sentence, when it is at least
+  24 characters, and the rest): the trace bar shows the first sentence in `#trace-text` and the
+  rest smaller and muted in `#trace-more` (`App.setTraceText`); the Explain caption wraps the
+  rest in `.xp3-more`. The story texts already put what happens first and the details after.
+- **The simple view** (`body.view-simple`, storage 'simple', default on; the Simple / Full
+  button `#btn-simple` in the stage tools, `App.toggleSimple`): the clock step button, the I/O
+  log card and the Runner's Follow / Camera / Into chips rows are away, and the dock has one
+  column less (rules in style.css; under 1180 px the page hid the I/O log already). Full shows
+  everything as before.
+- **The Explain program of the Pentium and the Pentium Pro has six instructions** (`P5` in
+  explain3d.js): `mov bl, 0x1F` after `mov al, 'A'` (two simple loads: the Pentium pairs them in
+  U and V, and the tour says so: `CPUS[80586].pair`) and `mov [es:1], bl` at the end (the color
+  byte of the cell: the letter turns white on blue, a beat "The color on the screen" after the
+  write to an odd address). The counts in the tour and the summary come from the list
+  (`NUM`). The other models keep the four instructions.
+- **The end of Explain leads on** (`.xp3-next`, `Explain.leaveTo`): "Step through it yourself"
+  exits with the story program in the editor, the trace on and Next focused; the second button
+  opens the first sample of this machine (or the first sample).
+
 ## The address of the page (theme.js `URL_PARAMS`, app.js `syncUrl`)
 
 The query of the address can name the state: `?cpu=80486&video=vga&view=die` (and `&explain=1`

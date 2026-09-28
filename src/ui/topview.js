@@ -1020,7 +1020,7 @@ const TopView = (() => {
           add(this.visit(ce, K.CPU_TRACE.out(Object.assign({ short: true }, ctxC)), { out: true }));
           add(this.boardSeg(P.addr, `On the address bus to the ${name}`));
           if (tm && tm.read) { const a = tm.addr ? tm.addr(tc) : [], r = tm.read(tc); add(dv(a.slice(0, 1).concat(r.slice(-1)), { in: true, out: true })); }
-          add(this.boardSeg(P.data, 'The code bytes go back on the data bus'));
+          add(this.boardSeg(P.data, `The ${I.kind === 'fetch' ? 'code bytes go' : 'data goes'} back on the data bus`));
           add(this.visit(ce, K.CPU_TRACE.in(ctxC), { in: true }));
         }
       }

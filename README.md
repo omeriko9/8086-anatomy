@@ -29,8 +29,11 @@ The signal colors are the same in all views: address (cyan), data (gold), contro
 FPU (violet).
 
 **Trace** (in the top bar) plays each instruction as steps. The text under the view tells
-each step, with **Back**, **Next** and **Skip** at its right. The **Speed** slider sets the
-time of a step; at its left end it goes on into slow motion (down to 1/64).
+each step (the first line says what happens, the small text under it gives the details), with
+**Back**, **Next** and **Skip** at its right. **Run** plays the steps by itself and keeps each
+one on the screen long enough to read it; the **Speed** slider scales that time, and at its
+left end it goes on into slow motion (down to 1/64). The **Simple** button above the view keeps
+only the main controls and cards; **Full** shows them all.
 
 The screen of the machine is under the program. Click it and type to send keys to the
 machine. The speaker button in the top bar opens the Sound menu (the machine sound and the

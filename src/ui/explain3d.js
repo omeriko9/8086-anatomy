@@ -4,13 +4,20 @@
 // spotlight (board3d.js: xpSet, xpFocus, xpShot, drawSpot), and the card of the unit stays open.
 // A tour of the parts comes first. Pause and the speed use the animation clock (AnimClock).
 const Explain3D = (() => {
+  // The program. On the Pentium and the Pentium Pro it has two more instructions: a second
+  // register load (the two loads are simple, so the Pentium pairs them in U and V) and the color
+  // byte of the cell (white on blue), so the letter is easy to see.
+  const P5 = typeof CPU_MODEL !== 'undefined' && (CPU_MODEL === '80586' || CPU_MODEL === '80686');
   const SRC = [
     ['mov ax, 0xB800', 'Put the number B800h in register AX.'],
     ['mov es, ax', 'Copy AX to the segment register ES.'],
     ["mov al, 'A'", 'Put the code of the letter A (41h) in AL.'],
+    ...(P5 ? [['mov bl, 0x1F', 'Put the color 1Fh (white on blue) in BL.']] : []),
     ['mov [es:0], al', 'Write AL to the first cell of the video memory.'],
+    ...(P5 ? [['mov [es:1], bl', 'Write BL to the color byte of the first cell.']] : []),
   ];
-  const ICOL = ['#6fe3cf', '#b69cff', '#ffb27a', '#e9e56a'];
+  const ICOL = ['#6fe3cf', '#b69cff', '#ffb27a', '#e9e56a', '#ff9ad5', '#9ad8ff'];
+  const NUM = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight'];
   // The parts of each model for the tour (the chip ids of the 3D board are the same on all boards).
   const MODEL = typeof CPU_MODEL !== 'undefined' ? CPU_MODEL : '8086';
   const CPUS = {
@@ -23,7 +30,8 @@ const Explain3D = (() => {
     80486: { name: '80486', lat: '74LS573', xcv: '74LS245', bus: '82288', cache: true,
       inside: 'It has an <b>8 KB cache</b> on the chip: the code comes from the memory once, then from the cache. A five-stage pipeline does most simple instructions in one clock.' },
     80586: { name: 'Pentium', lat: '74LS573', xcv: '74LS245', bus: '82288', cache: true,
-      inside: 'It has two pipelines, <b>U</b> and <b>V</b>: two simple instructions can execute in the same clock. It has an 8 KB code cache and an 8 KB data cache on the chip.' },
+      inside: 'It has two pipelines, <b>U</b> and <b>V</b>: two simple instructions can execute in the same clock. It has an 8 KB code cache and an 8 KB data cache on the chip.',
+      pair: ' Watch instructions 3 and 4: they are simple and independent, so they go through U and V <b>in the same clock</b>.' },
     80686: { name: 'Pentium Pro', lat: '74LS573', xcv: '74LS245', bus: '82288', cache: true,
       inside: 'Its decoders change each instruction into <b>µops</b>. The µops execute out of order, when their data is ready, and the reorder buffer puts the results back in order. A 256 KB L2 cache is in the same package.' },
   };
@@ -71,6 +79,10 @@ const Explain3D = (() => {
   .xp3-chap code { font: 600 14.5px var(--mono); color: var(--text); }
   .xp3-cap { margin: 0; font: 500 clamp(17px, 1.75vw, 23px)/1.45 var(--sans); color: var(--text); min-height: 2.9em; max-width: 100ch; }
   .xp3-cap b { color: #fff; font-weight: 650; }
+  .xp3-cap .xp3-more { display: block; margin-top: .15em; font-size: .8em; line-height: 1.4; color: var(--muted); }
+  .xp3-cap .xp3-more b { color: var(--text); }
+  .xp3-next { display: flex; flex-wrap: wrap; gap: 8px; }
+  .xp3-next[hidden] { display: none; }
   /* the step (while the caption shows the unit that works): a short line above the caption */
   .xp3-ctx { margin: 0; font: 500 14.5px/1.4 var(--sans); color: var(--muted); max-width: 120ch; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .xp3-ctx b { color: var(--text); font-weight: 600; }
@@ -246,8 +258,8 @@ const Explain3D = (() => {
       const P = this.program(), bd = this.board, list = P.list;
       if (c === 0) {
         return [
-          { label: 'The program', cap: `This program has <b>four instructions</b> (at the top). The assembler changed each line into bytes: the colored tiles. The CPU sees only these bytes.`, ms: 6000, run: () => { bd.applyPreset('overview', false); bd.xpFocus([], { fly: false }); this.card(-1); } },
-          { label: 'The CPU', cap: `The <b>${CPU.name} CPU</b> runs them, at ${this.mhz()} MHz. ${CPU.inside}`, ms: 7500, run: () => bd.xpFocus(['cpu', 'clk']) },
+          { label: 'The program', cap: `This program has <b>${NUM[list.length]} instructions</b> (at the top). The assembler changed each line into bytes: the colored tiles. The CPU sees only these bytes.`, ms: 6000, run: () => { bd.applyPreset('overview', false); bd.xpFocus([], { fly: false }); this.card(-1); } },
+          { label: 'The CPU', cap: `The <b>${CPU.name} CPU</b> runs them, at ${this.mhz()} MHz. ${CPU.inside}${CPU.pair || ''}`, ms: 7500 + (CPU.pair ? 2500 : 0), run: () => bd.xpFocus(['cpu', 'clk']) },
           { label: 'The clock', cap: this.clockText(), ms: 9000, run: () => { bd.dieEntry('clk'); bd.xpFocus(['die:clk']); bd.xpCard = { spec: Object.assign(this.clockCard(), { sub: '' }), t0: animNow(), dur: 7000 }; } },
           { label: 'The bus', cap: `The CPU talks to everything through the <b>bus</b>: the <b>${CPU.lat} latches</b> hold the address, the <b>${CPU.xcv} transceivers</b> pass the data, the <b>${CPU.bus} bus controller</b> makes the commands, and the <b>decoder</b> selects the chip that answers.`, ms: 7500, run: () => bd.xpFocus(['cpu', 'lat0', 'lat1', 'lat2', 'xcv0', 'xcv1', 'bus', 'dec']) },
           { label: 'The RAM', cap: `The program bytes are in the <b>RAM</b> (two banks: even and odd addresses), from address <b>10100h</b>.`, ms: 5000, run: () => bd.xpFocus(['ramE', 'ramO']) },
@@ -258,9 +270,12 @@ const Explain3D = (() => {
         return [{ label: 'The summary', cap: '', ms: 9000, run: () => {
           const cyc = (this.cyc || []).reduce((n, x) => n + (x || 0), 0);
           const mhz = this.mhz(), us = cyc / mhz;
-          this.capHtml = `Four instructions, <b>${cyc} clocks</b>: ${us < 1 ? (us * 1000).toFixed(0) + ' ns' : us.toFixed(1) + ' µs'} at ${mhz} MHz. The CPU had to fetch each code byte${CPU.cache ? ' (from the memory, through the cache)' : ' over the bus'} before it could use it, and one byte to the video memory made a letter. <b>That is all a program does: move bytes and calculate.</b>`;
+          const n = list.length, cap = NUM[n].charAt(0).toUpperCase() + NUM[n].slice(1);
+          this.capHtml = `${cap} instructions, <b>${cyc} clocks</b>: ${us < 1 ? (us * 1000).toFixed(0) + ' ns' : us.toFixed(1) + ' µs'} at ${mhz} MHz. The CPU had to fetch each code byte${CPU.cache ? ' (from the memory, through the cache)' : ' over the bus'} before it could use it, and ${P5 ? 'two bytes to the video memory made a letter in color' : 'one byte to the video memory made a letter'}. <b>That is all a program does: move bytes and calculate.</b>`;
           this.card(99); bd.traceClear(); bd.xpFocus(['screenTL'], { theta: 0.08, phi: 1.42, keepY: true });
           if (typeof Sfx !== 'undefined') Sfx.arrive('data');
+          // where to go next: the same program in the editor, or a program that shows this chip
+          if (this.ui) this.ui.nxt.hidden = false;
         } }];
       }
       const k = c - 1, ins = list[k];
@@ -288,7 +303,12 @@ const Explain3D = (() => {
       for (const o of order) {
         const i = o.i;
         if (o !== order[0]) extra.push({ step: i, label: label(i, o), run: () => this.enter(i, o) });
-        if (this.vHide && i === this.vHide.step) extra.push({ label: 'The letter on the screen', ms: 6500, cap: `The <b>${VIDEO} card</b> reads its video memory 60 times a second to draw the screen. At its next frame, the first cell holds <b>41h</b> = the letter <b>A</b> (with the color byte 07h: grey on black). <b>The letter appears.</b>`, run: () => this.screen() });
+        if (this.vHide && i === this.vHide.step) {
+          const color = !!(steps[i].I && (steps[i].I.addr & 1));   // the second byte of the cell is its color
+          extra.push(color
+            ? { label: 'The color on the screen', ms: 6000, cap: `Each cell of the text screen has two bytes: the character, then its color. The <b>${VIDEO} card</b> now reads <b>1Fh</b> as the color of the first cell: white on blue. <b>The letter turns white on blue.</b>`, run: () => this.screen() }
+            : { label: 'The letter on the screen', ms: 6500, cap: `The <b>${VIDEO} card</b> reads its video memory 60 times a second to draw the screen. At its next frame, the first cell holds <b>41h</b> = the letter <b>A</b> (with the color byte 07h: grey on black). <b>The letter appears.</b>`, run: () => this.screen() });
+        }
       }
       extra.push({ label: 'Done', ms: 3600, run: () => {
         const cyc = p.cycles !== undefined ? p.cycles : 0;
@@ -482,6 +502,7 @@ const Explain3D = (() => {
       const at = this.ms ? this.ms.indexOf(b) : -1;
       if (at >= 0) this.mi = at;           // (the second half of a long caption keeps its milestone)
       this.uSeg = null; this.quickStep = false;
+      if (this.ui) this.ui.nxt.hidden = true;
       if (this.board && this.board.xpCard) { this.board.xpCard = null; this.board.showCard(null); }
       this.capHtml = b.cap || '';
       const d = b.run ? b.run() : 0;
@@ -531,6 +552,18 @@ const Explain3D = (() => {
       const chap = el('span', 'xp3-chap', bar);
       const cap = el('p', 'xp3-cap', bar);
       cap.setAttribute('aria-live', 'polite');
+      // at the end: where to go next
+      const nxt = el('div', 'xp3-next', bar);
+      nxt.hidden = true;
+      const own = el('button', 'xp3-btn main', nxt, 'Step through it yourself');
+      own.type = 'button'; own.title = 'Exit: this program stays in the editor. Next gives you one step at a time.';
+      own.addEventListener('click', () => this.leaveTo('own'));
+      const a0 = this.app, ms = (a0.samples || []).find(x => x.model === MODEL) || (a0.samples || [])[0];
+      if (ms) {
+        const sm = el('button', 'xp3-btn', nxt, `Open "${ms.name}"`);
+        sm.type = 'button'; sm.title = ms.desc || `A program for the ${CPU.name}`;
+        sm.addEventListener('click', () => this.leaveTo(ms.id));
+      }
       // the timing panel (opens above the controls)
       const setp = el('div', 'xp3-set', bar);
       setp.hidden = true;
@@ -579,9 +612,23 @@ const Explain3D = (() => {
       const ex = el('button', 'xp3-btn', row, 'Exit');
       ex.type = 'button';
       ex.addEventListener('click', () => this.stop());
-      this.ui = { prog, cards, bar, chap, cap, play, msBox, msEls: [], chips, sp, nx, back };
+      this.ui = { prog, cards, bar, chap, cap, play, msBox, msEls: [], chips, sp, nx, back, nxt };
       const b = document.getElementById('btn-explain'); if (b) b.textContent = '✕ Explain';
       this.syncUi();
+    }
+    // Exit to the page with a program loaded: the Explain program ('own'), or a sample.
+    leaveTo(what) {
+      const a = this.app, P = this.program();
+      this.stop();
+      const sel = a.el('sample-select');
+      if (what === 'own') {
+        a.editor.value = P.src; storage.set('src', P.src);
+        if (sel) sel.value = 'custom';
+        a.showDesc(); a.assembleAndLoad();
+        a.announce('The program of the story is in the editor. Press Next for one step.');
+      } else if (sel) { sel.value = what; sel.dispatchEvent(new Event('change')); }
+      if (!a.traceOn) a.setTrace(true);
+      const nb = a.el('trace-next'); if (nb) nb.focus();
     }
     // Go on now (the rest of this beat is skipped).
     goNext() {
@@ -661,10 +708,13 @@ const Explain3D = (() => {
       const u = this.ui;
       if (!u) return;
       const t = this.uSeg && this.board.xpUnitText ? this.board.xpUnitText(this.uSeg) : null;
+      // the first sentence, and the rest smaller under it (splitLead of theme.js; the <b> tags
+      // hold no sentence ends)
+      const layer = html => { const [a, b] = typeof splitLead === 'function' ? splitLead(html) : [html, '']; return b ? `${a}<span class="xp3-more">${b}</span>` : a; };
       if (t && t.text) {
         const hexB = x => x.replace(/(\b[0-9A-F]{2,8}h\b)/g, '<b>$1</b>');
-        u.cap.innerHTML = `<span class="xp3-unit">${t.chip} · ${t.unit}</span>${hexB(t.text)}`;
-      } else u.cap.innerHTML = this.capHtml || '';
+        u.cap.innerHTML = `<span class="xp3-unit">${t.chip} · ${t.unit}</span>${layer(hexB(t.text))}`;
+      } else u.cap.innerHTML = layer(this.capHtml || '');
     }
     syncProgress(now) {
       if (!this.ui || !this.cur) return;
