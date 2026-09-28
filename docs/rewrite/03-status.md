@@ -212,3 +212,23 @@ To resume the design workflow itself: `Workflow({scriptPath: "/root/.claude/proj
 ## Cost record
 
 Two workflows ran: the map (9 agents, 2.2 M subagent tokens, 69 min) and the design (14 agents, stopped during the 15th, about 3.5 h wall clock on 4 CPUs at two agents at a time). The proposals and the spec are the deliverables of that spend.
+
+## Addendum: the build workflow (stopped after 15 minutes at the owner's request)
+
+A build of the first visible slice was started (spec work packages 0 to 3 for the 8086 with the
+letter lesson) and stopped while its two agents were mid-work, to save cost. What they left is
+committed as is, unfinished and unverified:
+
+- `build.mjs`: a page table (`--page anatomy|learn`); the present page builds byte for byte as
+  before (checked: same size, tokens present, `tests/machine.test.mjs` passes).
+- `src/ui/tokens.css` (the 34 tokens cut from `style.css`, joined back in the build), `src/core/font8x8.js`.
+- `src/ui/board3d.js`: a 12-line change (the `xpTime.pass` multiplier and a null-safe read; see the diff of this commit).
+- `src/learn/`: `playback.js` (the engine extracted from app.js, 32 KB), `plan.js`, `facade.js`,
+  `content.js`, `terms.js`, `regs.js`, `explore.js`, the lesson files (the letter lesson in
+  `lessons/l8086-letter.js`, stubs for the other machines, the program sources). NOT written yet:
+  `learn.html`, `learn.css`, `stage.js`, `caption.js`, `player.js`, `outline.js`, `shell.js`, so
+  `node build.mjs --page learn` fails on the missing required files, by design.
+- `tools/learn-check.mjs`: the Node lesson checker (unfinished).
+
+There is no new page to open yet. The next step is to finish the missing files against the spec's
+sections 2, 7.4 and 7.5, then `node build.mjs --page learn --artifact`.

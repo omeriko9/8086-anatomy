@@ -6315,7 +6315,7 @@ const { BoardView, RunnerView, BoardKit } = (() => {
       if (this.xp && this.xp.shots) {
         // the camera goes from the view now to the first shot of the step (the token waits)
         const X = this.xpPlan(s, ms), U = this.xpTime || { travel: 1 }, c = this.cam;
-        s._xpLead = ms && ms < 1000 ? 900 : this.xpCutMs({ tgt: c.target.clone(), r: c.r }, X.scenes[0].shot, 1200 * clamp(1 / (U.travel || 1), 0.6, 3));
+        s._xpLead = ms && ms < 1000 ? 900 : this.xpCutMs({ tgt: c.target.clone(), r: c.r }, X.scenes[0].shot, 1200 * clamp(1 / (U.travel || 1), 0.6, 3) * (U.cut === undefined ? 1 : U.cut));
         return s._xpLead + X.Tm;
       }
       return this.flowFull(s, ms, animNow()).T;
@@ -6335,7 +6335,7 @@ const { BoardView, RunnerView, BoardKit } = (() => {
     // Returns { Tm, scenes: [{ ts (ms from the start), shot }] }; sets t0, t1, fin, fout of the parts.
     xpPlan(s, ms) {
       const J = this.trJourney(s), segs = J.segs, U = this.xpTime || { travel: 1, work: 1, read: 1 };
-      const key = `${ms}|${U.travel}|${U.work}|${U.read}|${this.w}x${this.h}`;
+      const key = `${ms}|${U.travel}|${U.work}|${U.read}|${U.pass}|${U.cut}|${this.w}x${this.h}`;
       const put = X => { segs.forEach((g, i) => { [g.t0, g.t1, g.fin, g.fout] = X.segT[i]; }); J.runs = X.runs; return X; };
       if (J._xp && J._xp.key === key) return put(J._xp);   // (the normal plan can change the parts in between)
       const quick = !!ms && ms < 1000;
@@ -6379,11 +6379,11 @@ const { BoardView, RunnerView, BoardKit } = (() => {
       // its whole length on the screen, so all its parts have the same speed, and the run speeds up
       // and slows down smoothly (xpEase).
       const FOLLOW = 1200 * slow, RUN_MIN = (quick ? 300 : 1000) * Math.sqrt(slow), RUN_MAX = 6000 * slow;
-      const ACC = (quick ? 250 : 850) * Math.sqrt(slow), PASS = quick ? 0 : XP_PASS * Math.sqrt(slow);
+      const ACC = (quick ? 250 : 850) * Math.sqrt(slow), PASS = quick ? 0 : XP_PASS * Math.sqrt(slow) * (U.pass === undefined ? 1 : U.pass);
       const items = [];
       scenes.forEach((S, k) => {
         const follow = !!S.G.follow;
-        if (k > 0 && !follow) items.push({ k: 'cut', ms: this.xpCutMs(scenes[k - 1].shot, S.shot, XP_CUT * slow), S });
+        if (k > 0 && !follow) items.push({ k: 'cut', ms: this.xpCutMs(scenes[k - 1].shot, S.shot, XP_CUT * slow * (U.cut === undefined ? 1 : U.cut)), S });
         // the length of a part on the screen of the shot (projected: a bond wire that goes down
         // to the board is short on the screen)
         const cam = this.shotCam(S.shot);
@@ -7043,7 +7043,7 @@ const { BoardView, RunnerView, BoardKit } = (() => {
       const transit = xps ? lead : f.pan * sc, dur = Math.max(120, xps ? X.Tm : f.Tm * sc);
       const cycOf = x => (x.kind === 'inside' ? null : x.e || x);
       const cyc = cycOf(s);
-      const replay = this.tr && this.tr.story === story && (info.back || i !== this.tr.i + 1);
+      const replay = this.tr && this.tr.story === story && (info.back || info.finish || i !== this.tr.i + 1);
       if (replay) {
         // Back, or a jump in the list: put the earlier steps back in their end state
         this.flowsClear();
@@ -7206,6 +7206,7 @@ const { BoardView, RunnerView, BoardKit } = (() => {
     // (always there in Explain), the program strip at the top and the caption bar at the bottom
     // (in px of the view). Else only the card and the screen (trCover).
     xpCovers() {
+      if (this.covers) { this.xpTopPx = this.covers.top; return Object.assign({}, this.covers); }
       const tc = this.trCover(true), out = { left: tc.left, right: tc.right, top: 0, bottom: 0 };
       if (!this.xp || !this.renderer) return out;
       // (Explain has no card at the side of a unit: only the clock card of the tour)
@@ -7222,6 +7223,7 @@ const { BoardView, RunnerView, BoardKit } = (() => {
     // screen (the floating monitor) at the right when it is tall.
     // trace: for the plan of a step (the card takes its space during all of the trace).
     trCover(trace) {
+      if (this.covers) return { left: this.covers.left, right: this.covers.right };
       let min = true;
       if (this.bcard) min = this.bcard.min;
       else { try { const v = localStorage.getItem('a86:boardCardMin'); if (v !== null) min = v === 'true'; } catch (err) { /* the default */ } }
