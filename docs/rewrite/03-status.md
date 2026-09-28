@@ -194,7 +194,7 @@ New decisions 23-30 record the traceRep choice, `enter: false`, the dry pass, Au
 
 ## What was yet to be found
 
-The critique loop was designed to run until a round reports no high-severity issue (at most two rounds). Round 2 still reports two high issues from each critic, so a third pass would have been needed after applying these. Things no critic has checked yet, because they need code to exist:
+The critique loop was designed to run until a round reports no high-severity issue (at most two rounds). Round 2 still reports 34 issues, 3 of them high (two from the completeness critic, one from the skeptic), so a third pass would have been needed after applying these. Things no critic has checked yet, because they need code to exist:
 
 - Whether the 16 new lesson programs assemble and run (two of the curriculum proposal's six written programs failed in the editor judge's check; the spec asks for a Node run of every program before it enters the curriculum).
 - The measured pacing numbers (the `xpTime.pass` multiplier, the stop filter) on the real board: the spec's beat times are targets derived from the plan formulas, not measurements.
