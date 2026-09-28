@@ -13,7 +13,7 @@ const prog = process.argv[4] || path.join(DOS_DIR, 'CAT.EXE');
 if (!fs.existsSync(img)) { console.log('skip: no image'); process.exit(0); }
 
 const browser = await puppeteer.launch({
-  executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: 'new',
+  executablePath: process.env.CHROME || 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: 'new',
   args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--allow-file-access-from-files'],
 });
 const page = await browser.newPage();

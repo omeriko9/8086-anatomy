@@ -114,6 +114,8 @@ built into `src/core/x86core.wasm.js`); the JavaScript cores stay as the referen
 | `node tools/shot.mjs` | A headless Chrome screenshot and a console-error check of the page. |
 | `node tools/uxshots.mjs --out DIR` | Screenshots of all the views and of Explain, for a review of the UI. |
 
+The screenshot tools look for Chrome at its Windows path; set `CHROME` to the browser's path elsewhere (for example `CHROME=/usr/bin/chromium node tools/shot.mjs`).
+
 ## Structure
 
 See `ARCHITECTURE.md` for the module contracts, the memory and I/O maps, the micro-event

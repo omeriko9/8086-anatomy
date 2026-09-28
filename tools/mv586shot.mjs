@@ -11,7 +11,7 @@ const opt = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] :
 const set = { tab: 'memory', trace: false, speedPos: 90, speedSet: true, cpu: opt('--model', '80586'), sample: 'custom' };
 if (opt('--src')) set.src = fs.readFileSync(opt('--src'), 'utf8');
 if (opt('--sample')) set.sample = opt('--sample');
-const browser = await puppeteer.launch({ executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: 'new',
+const browser = await puppeteer.launch({ executablePath: process.env.CHROME || 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: 'new',
   args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--allow-file-access-from-files'] });
 const page = await browser.newPage();
 let errors = 0;

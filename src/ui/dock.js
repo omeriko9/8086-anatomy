@@ -84,7 +84,7 @@ class StateDock {
     if (this.is486 || this.p5like) {
       const nm = this.is686 ? 'Pentium Pro' : this.is586 ? 'Pentium' : '80486';
       const ft = document.getElementById('fpu-title');
-      if (ft) ft.innerHTML = `FPU <small>(on the ${nm})</small>`;
+      if (ft) ft.innerHTML = 'FPU <small>on chip</small>';
       const fc = ft && ft.closest('.card');
       if (fc) fc.title = `The floating-point unit is on the ${nm} chip: there is no coprocessor.`;
     }

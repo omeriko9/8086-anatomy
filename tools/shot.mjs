@@ -14,7 +14,7 @@ const evalJs = opt('--eval', null);
 const file = opt('--file', path.join(root, 'dist', '8086-anatomy.html'));
 
 const browser = await puppeteer.launch({
-  executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe',
+  executablePath: process.env.CHROME || 'C:/Program Files/Google/Chrome/Application/chrome.exe',
   headless: 'new',
   args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--allow-file-access-from-files'],
 });

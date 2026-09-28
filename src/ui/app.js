@@ -730,7 +730,7 @@ class App {
     } catch (e) { this.announce('The browser did not open a new window.'); return; }
     this.toggleMax(false);
     for (const s of document.querySelectorAll('style')) win.document.head.appendChild(s.cloneNode(true));
-    win.document.title = kind === 'stage' ? '8086 Anatomy · machine' : '8086 Anatomy · screen';
+    win.document.title = `${document.title} · ${kind === 'stage' ? 'machine' : 'screen'}`;
     win.document.documentElement.lang = 'en';
     win.document.body.className = kind === 'stage' ? 'pip' : 'pip-mon';
     let ph = null;
@@ -924,6 +924,7 @@ class App {
     this.el('brand-sub').textContent = this.is686 ? 'a live Pentium Pro computer (out-of-order µops, register renaming, L2 in the package)' : this.is586 ? 'a live Pentium computer (two pipes, branch prediction, two caches)' : this.is486 ? 'a live 80486DX computer (FPU and cache on the chip)' : `a live ${name} + ${fpu} computer`;
     this.el('brand-title').textContent = `${name} Anatomy`;
     document.title = `${name} Anatomy`;
+    this.el('help-title').textContent = `How to use ${name} Anatomy`;
     document.querySelectorAll('.cpu-name').forEach(e => { e.textContent = name; });
     document.querySelectorAll('.fpu-name').forEach(e => { e.textContent = fpu; });
     document.querySelectorAll('.die-sub').forEach(e => { e.textContent = `${name} + ${fpu}`; });

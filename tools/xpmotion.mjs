@@ -19,7 +19,7 @@ const W = +opt('--w', 1280), H = +opt('--h', 800);
 const set = { speed: +opt('--speed', 1), travel: +opt('--travel', 1), work: +opt('--work', 1), read: +opt('--read', 1), wait: false };
 const pageFile = path.resolve(root, opt('--page', 'dist/8086-anatomy.html'));
 
-const browser = await puppeteer.launch({ executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: 'new', args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+const browser = await puppeteer.launch({ executablePath: process.env.CHROME || 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: 'new', args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 const page = await browser.newPage();
 const errors = [];
 page.on('pageerror', e => errors.push(e.message));

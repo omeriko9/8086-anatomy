@@ -22,7 +22,7 @@ const set = { speed: +opt('--speed', 0.25), travel: +opt('--travel', 1), work: +
 fs.mkdirSync(out, { recursive: true });
 for (const f of fs.readdirSync(out)) if (/^f\d+\.(jpg|png)$/.test(f)) fs.unlinkSync(path.join(out, f));
 
-const browser = await puppeteer.launch({ executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: 'new', args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+const browser = await puppeteer.launch({ executablePath: process.env.CHROME || 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: 'new', args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 const page = await browser.newPage();
 const errors = [];
 page.on('pageerror', e => errors.push(e.message));

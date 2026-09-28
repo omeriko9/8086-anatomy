@@ -10,7 +10,7 @@ const secs = +(process.argv[2] || 3);
 const pos = process.argv.slice(3).filter((a, i, all) => !a.startsWith('--') && !(all[i - 1] || '').startsWith('--'));
 const models = pos.length ? pos : ['8086', '80286', '80386', '80486', '80586', '80686'];
 const prog = [...fs.readFileSync(path.join(root, 'tests/asm286/bench.bin'))];
-const browser = await puppeteer.launch({ executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: 'new', args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+const browser = await puppeteer.launch({ executablePath: process.env.CHROME || 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: 'new', args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 for (const model of models) {
   const page = await browser.newPage();

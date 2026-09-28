@@ -8,7 +8,7 @@ const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const secs = +(process.argv[2] || 2);
 const src = ['src/core/cpu8086.js', 'src/core/cpu80286.js', 'src/core/cpu80386.js', 'src/core/cpu80486.js'].map(f => fs.readFileSync(path.join(root, f), 'utf8')).join('\n');
 const prog = [...fs.readFileSync(path.join(root, 'tests/asm286/bench.bin'))];
-const browser = await puppeteer.launch({ executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: 'new' });
+const browser = await puppeteer.launch({ executablePath: process.env.CHROME || 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: 'new' });
 const files = ['src/asm/disasm.js', 'src/asm/assembler.js', 'src/core/fpu8087.js', 'src/core/cpu8086.js', 'src/core/cpu80286.js', 'src/core/cpu80386.js', 'src/core/cpu80486.js',
   'src/core/devices.js', 'src/core/disk.js', 'src/core/fdc765.js', 'src/core/soundblaster.js', 'src/core/vga.js', 'src/core/machine.js', 'src/core/devices286.js',
   'src/core/machine286.js', 'src/core/machine386.js', 'src/core/machine486.js', 'src/core/bios.js', 'src/core/vgabios.js'];

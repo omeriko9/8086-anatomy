@@ -13,7 +13,7 @@ const video = opt('--video', 'cga');
 const out = n => path.join(root, 'tools', 'tv', `${tag}_${n}.png`);
 
 const browser = await puppeteer.launch({
-  executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe',
+  executablePath: process.env.CHROME || 'C:/Program Files/Google/Chrome/Application/chrome.exe',
   headless: 'new',
   args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--allow-file-access-from-files', '--autoplay-policy=no-user-gesture-required'],
 });

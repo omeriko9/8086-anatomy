@@ -16,7 +16,7 @@ const pg = opt('--prog', 'p6');
 const src = pg === 'p6' || pg === 'p5'
   ? fs.readFileSync(path.join(root, 'tools', pg + 'shot.mjs'), 'utf8').match(pg === 'p6' ? /const P6_PROG = String\.raw`([\s\S]*?)\n`;/ : /const P5_PROG = String\.raw`([\s\S]*?)\n`;/)[1] + '\n'
   : null;
-const browser = await puppeteer.launch({ executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: 'new',
+const browser = await puppeteer.launch({ executablePath: process.env.CHROME || 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: 'new',
   args: args.includes('--gpu') ? ['--allow-file-access-from-files', '--enable-gpu', '--ignore-gpu-blocklist'] : ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--allow-file-access-from-files'] });
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 for (const tab of opt('--tabs', 'die,board').split(',')) {

@@ -12,7 +12,7 @@ const args = process.argv.slice(2);
 const opt = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : d; };
 const models = opt('--models', '80486,80586,80686').split(','), kinds = opt('--kinds', 'cache,bus,pipe,rat,rs,rob,port').split(',');
 const out = path.resolve(opt('--out', path.join(root, 'tools', 'unitsheet.png')));
-const browser = await puppeteer.launch({ executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: 'new', args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+const browser = await puppeteer.launch({ executablePath: process.env.CHROME || 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: 'new', args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 const shots = [];
 for (const model of models) {
   const page = await browser.newPage();

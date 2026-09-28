@@ -15,7 +15,7 @@ const prog = shotSrc.slice(shotSrc.indexOf('String.raw`') + 11, shotSrc.indexOf(
 const w = +opt('--w', 1440), h = +opt('--h', 900), steps = +opt('--steps', 20), fastMs = +opt('--fast', 0);
 const set = { tab: 'timing', trace: false, speedPos: fastMs ? 90 : opt('--run') ? 60 : 30, speedSet: true, cpu: opt('--model', '80586') };
 if (opt('--sample')) set.sample = opt('--sample'); else { set.src = prog; set.sample = 'custom'; }
-const browser = await puppeteer.launch({ executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: 'new',
+const browser = await puppeteer.launch({ executablePath: process.env.CHROME || 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: 'new',
   args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--allow-file-access-from-files'] });
 const page = await browser.newPage();
 let errors = 0;

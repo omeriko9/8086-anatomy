@@ -865,7 +865,7 @@ body.pip-mon #btn-mon-detach, body.pip-mon #btn-mon-min, body.pip-mon .mon-grip 
 .card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; flex: none; }
 .card-head h3 { margin: 0; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); font-weight: 600; white-space: nowrap; }
 .card-head h3 small { letter-spacing: 0; text-transform: none; color: var(--faint); font: 11px var(--mono); margin-left: 4px; }
-.card-note { font: 11px var(--mono); color: var(--faint); white-space: nowrap; }
+.card-note { font: 11px var(--mono); color: var(--faint); white-space: nowrap; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .chip-btn {
   font: 600 10px var(--mono); letter-spacing: .08em; padding: 2px 8px; border-radius: 999px;
   border: 1px solid var(--line); background: var(--panel2); color: var(--gold-hi);

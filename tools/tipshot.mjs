@@ -1,6 +1,6 @@
 import puppeteer from 'puppeteer-core';
 import { pathToFileURL } from 'node:url';
-const b = await puppeteer.launch({ executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: 'new' });
+const b = await puppeteer.launch({ executablePath: process.env.CHROME || 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: 'new' });
 const p = await b.newPage(); await p.setViewport({ width: 1440, height: 900 });
 let errs = 0; p.on('pageerror', e => { errs++; console.log(e.message); });
 await p.goto(pathToFileURL(process.argv[2]).href); await new Promise(r => setTimeout(r, 2000));

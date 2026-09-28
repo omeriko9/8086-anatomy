@@ -1,6 +1,6 @@
 import puppeteer from 'puppeteer-core';
 import { pathToFileURL } from 'node:url';
-const b = await puppeteer.launch({ executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: 'new', args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+const b = await puppeteer.launch({ executablePath: process.env.CHROME || 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: 'new', args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 const p = await b.newPage();
 let errs = 0;
 p.on('pageerror', e => { errs++; console.log('pageerror', e.message); });

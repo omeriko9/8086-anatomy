@@ -10,7 +10,7 @@ const args = process.argv.slice(2);
 const opt = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : d; };
 const img = args[0] && !args[0].startsWith('--') ? args[0] : 'C:/Users/Omer/Dropbox/ESP2026/M5PaperDOS/dos_files/msdos.img';
 if (!fs.existsSync(img)) { console.log('skip: no image'); process.exit(0); }
-const browser = await puppeteer.launch({ executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: 'new', args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+const browser = await puppeteer.launch({ executablePath: process.env.CHROME || 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: 'new', args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 const page = await browser.newPage();
 let errors = 0;
 page.on('pageerror', e => { errors++; console.log('[pageerror]', e.message); });

@@ -10,7 +10,7 @@ const args = process.argv.slice(2);
 const opt = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : d; };
 const model = opt('--model', '8086'), instrN = +opt('--instr', 2);
 const asm = opt('--asm', 'mov bx, dat; mov ax, [bx]; hlt; dat: dw 0x1234');
-const browser = await puppeteer.launch({ executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: 'new', args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+const browser = await puppeteer.launch({ executablePath: process.env.CHROME || 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: 'new', args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 const page = await browser.newPage();
 await page.setViewport({ width: 1280, height: 720 });
 await page.evaluateOnNewDocument(s => { for (const k in s) localStorage.setItem('a86:' + k, JSON.stringify(s[k])); }, { cpu: model, tab: 'top', trace: true, codeHidden: true, dockHidden: true });

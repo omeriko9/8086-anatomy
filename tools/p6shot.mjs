@@ -56,7 +56,7 @@ const set = { tab: opt('--tab', 'die'), trace: !fastMs && opt('--trace', '1') !=
 if (opt('--sample', null)) { set.sample = opt('--sample'); }
 else { set.src = src; set.sample = 'custom'; }
 if (opt('--video')) set.video = opt('--video');
-const browser = await puppeteer.launch({ executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: 'new',
+const browser = await puppeteer.launch({ executablePath: process.env.CHROME || 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: 'new',
   args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--allow-file-access-from-files'] });
 const page = await browser.newPage();
 let errors = 0;

@@ -17,7 +17,7 @@ const model = opt('--model', '80486'), W = +opt('--w', 1440), H = +opt('--h', 90
 const only = opt('--only', null), want = n => !only || only.split(',').includes(n);
 fs.mkdirSync(out, { recursive: true });
 
-const browser = await puppeteer.launch({ executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: 'new', args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+const browser = await puppeteer.launch({ executablePath: process.env.CHROME || 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: 'new', args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 const page = await browser.newPage();
 const errors = [];
 page.on('pageerror', e => errors.push(e.message));

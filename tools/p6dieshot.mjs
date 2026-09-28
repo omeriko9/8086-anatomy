@@ -23,7 +23,7 @@ const w = +opt('--w', 1600), h = +opt('--h', 1000), steps = +opt('--steps', 12),
 const prefix = opt('--out', path.join(root, 'tools', 'p6d'));
 const file = opt('--file', path.join(root, 'dist', '8086-anatomy.p6test.html'));
 const set = { tab: 'die', trace: !fastMs, speedPos: fastMs ? 90 : +opt('--speed', 30), speedSet: true, cpu: opt('--model', '80686'), src, sample: 'custom' };
-const browser = await puppeteer.launch({ executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: 'new',
+const browser = await puppeteer.launch({ executablePath: process.env.CHROME || 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: 'new',
   args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--allow-file-access-from-files'] });
 const page = await browser.newPage();
 let errors = 0;
